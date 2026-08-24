@@ -77,14 +77,14 @@ function Root() {
        <Route path='/partner-teammember' element={ token
       ? <PartnerTeamMembers token={token} onLogout={handleLogout} />
       : <Navigate to="/" replace />}/>
-      <Route
-        path="/dashboard"
-        element={
-          token
-            ? <DashboardPage token={token} partnerName={partner?.username} onLogout={handleLogout} />
-            : <Navigate to="/" replace />
-        }
-      />
+     <Route
+  path="/dashboard"
+  element={
+    token
+      ? <DashboardPage token={token} partnerName={partner?.username} partner={partner} onLogout={handleLogout} />
+      : <Navigate to="/" replace />
+  }
+/>
 
       {/* ── Admin routes ── */}
       <Route path="/admin" element={<AdminLoginPage onLogin={handleAdminLogin} />} />

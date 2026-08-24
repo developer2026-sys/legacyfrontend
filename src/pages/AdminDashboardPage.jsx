@@ -6,6 +6,7 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import TeammemberButton from "../components/teamemberbutton";
 import PartnerSettingsModal from "../components/PartnerSettingsModal";
+import { MonumentSettingTab } from "./MonumentSettingAdminTab";
 
 const primary = "#1669A9";
 const primaryHover = "#1E90CF";
@@ -605,6 +606,8 @@ export default function AdminDashboard({ token, adminName, onLogout }) {
   const [partnerTeamMembers, setPartnerTeamMembers] = useState([]);
   const [ptmLoading, setPtmLoading] = useState(true);
   const [ptmActioningId, setPtmActioningId] = useState(null);
+  const [monumentRequests, setMonumentRequests] = useState([]);
+  const [monumentLoading, setMonumentLoading] = useState(true);
 
   const fetchRequests = useCallback(async () => {
     try {
@@ -633,6 +636,15 @@ export default function AdminDashboard({ token, adminName, onLogout }) {
     finally { setPtmLoading(false); }
   }, [token]);
 
+  const fetchMonumentRequests = useCallback(async () => {
+    try {
+      setMonumentLoading(true);
+      const { data } = await axios.get(`${BASE_URL}/admin/monument-setting`, { headers: { Authorization: `Bearer ${token}` } });
+      setMonumentRequests(data.requests || []);
+    } catch { err("Error", "Failed to load monument setting requests."); }
+    finally { setMonumentLoading(false); }
+  }, [token]);
+
 
   const fetchEmailReminderSetting = useCallback(async () => {
     try {
@@ -641,7 +653,8 @@ export default function AdminDashboard({ token, adminName, onLogout }) {
     } catch {  }
   }, [token]);
 
-  useEffect(() => { fetchRequests(); fetchPartners(); fetchPartnerTeamMembers(); fetchEmailReminderSetting(); }, []);
+  useEffect(() => { fetchRequests(); fetchPartners(); fetchPartnerTeamMembers(); fetchEmailReminderSetting(); fetchMonumentRequests(); }, []);
+
   const handleLogout = () => {
     localStorage.removeItem("adminToken");
     localStorage.removeItem("admin");
@@ -801,6 +814,7 @@ export default function AdminDashboard({ token, adminName, onLogout }) {
           <Tab label="Requests" active={tab === "requests"} onClick={() => setTab("requests")} count={requests.length} />
           <Tab label="Partners" active={tab === "partners"} onClick={() => setTab("partners")} count={partners.length} />
           <Tab label="Partner Team Members" active={tab === "partnerTeamMembers"} onClick={() => setTab("partnerTeamMembers")} count={partnerTeamMembers.length} />
+          <Tab label="Monument Setting" active={tab === "monumentSetting"} onClick={() => setTab("monumentSetting")} count={monumentRequests.length} />
         </div>
 
         {/* ══ REQUESTS TAB ══ */}
@@ -1073,6 +1087,23 @@ export default function AdminDashboard({ token, adminName, onLogout }) {
               </div>
             )}
           </div>
+        )}
+
+         {/* ══ MONUMENT SETTING TAB ══ */}
+                {/* ══ MONUMENT SETTING TAB ══ */}
+                {tab === "monumentSetting" && (
+          monumentLoading ? (
+            <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading monument setting requests…</div>
+          ) : (
+            <MonumentSettingTab
+              requests={monumentRequests}
+              partners={partners}
+              token={token}
+              onRequestUpdated={(updated) =>
+                setMonumentRequests(prev => prev.map(r => r.id === updated.id ? updated : r))
+              }
+            />
+          )
         )}
       </main>
 

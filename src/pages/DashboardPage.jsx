@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import axios from "axios";
 import { BASE_URL } from "../baseurl";
 import { useToast } from "../components/toast";
@@ -87,7 +87,7 @@ function StatCard({ label, sublabel, value, icon }) {
   );
 }
 
-export default function DashboardPage({ partnerName = "Partner", token, onLogout }) {
+export default function DashboardPage({ partnerName = "Partner", partner = null, token, onLogout }) {
   const { success: toastSuccess, error: toastError } = useToast();
   const [active, setActive] = useState([]);
   const [completed, setCompleted] = useState([]);
@@ -100,6 +100,10 @@ export default function DashboardPage({ partnerName = "Partner", token, onLogout
   const [submittedRequestId, setSubmittedRequestId] = useState(null);
   const [showPayment, setShowPayment] = useState(false);
 const [submittedPkg, setSubmittedPkg] = useState(null);
+
+// Monument Setting — top-level dashboard section switch
+const [mainView, setMainView] = useState("restoration"); // "restoration" | "monument"
+
 
 // Add near submitNewRequest
 const [paySending, setPaySending] = useState(false);
@@ -123,6 +127,768 @@ const sendPaymentRequest = async () => {
     setPaySending(false);
   }
 };
+
+
+
+/* ---------- Shared field helpers ---------- */
+
+function fieldStyle() {
+  return { backgroundColor: "#F9FAFB", border: "1px solid #D1D5DB", color: "#1A1A2E", outline: "none" };
+}
+function focusHandlers() {
+  return {
+    onFocus: (e) => { e.target.style.borderColor = "#1669A9"; e.target.style.boxShadow = "0 0 0 3px rgba(22,105,169,0.12)"; },
+    onBlur: (e) => { e.target.style.borderColor = "#D1D5DB"; e.target.style.boxShadow = "none"; },
+  };
+}
+
+function FieldLabel({ children }) {
+  return <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>{children}</label>;
+}
+
+function TextInput({ label, name, type = "text", required, placeholder, defaultValue }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <input
+        name={name}
+        type={type}
+        required={required}
+        placeholder={placeholder}
+        defaultValue={defaultValue}
+        className="w-full h-12 px-4 rounded-lg text-sm transition"
+        style={fieldStyle()}
+        {...focusHandlers()}
+      />
+    </div>
+  );
+}
+
+function SelectInput({ label, name, options, required }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <select
+        name={name}
+        required={required}
+        defaultValue=""
+        className="w-full h-12 px-4 rounded-lg text-sm transition"
+        style={fieldStyle()}
+        {...focusHandlers()}
+      >
+        <option value="" disabled>Select…</option>
+        {options.map((o) => <option key={o} value={o}>{o}</option>)}
+      </select>
+    </div>
+  );
+}
+
+function TextAreaInput({ label, name, placeholder, rows = 3 }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <textarea
+        name={name}
+        rows={rows}
+        placeholder={placeholder}
+        className="w-full px-4 py-3 rounded-lg text-sm transition resize-none"
+        style={fieldStyle()}
+        {...focusHandlers()}
+      />
+    </div>
+  );
+}
+
+function RadioRow({ label, name, options, defaultValue }) {
+  return (
+    <div>
+      <FieldLabel>{label}</FieldLabel>
+      <div className="flex flex-wrap gap-4 h-12 items-center">
+        {options.map((o) => (
+          <label key={o} className="flex items-center gap-2 text-sm" style={{ color: "#374151" }}>
+            <input type="radio" name={name} value={o} defaultChecked={o === defaultValue} style={{ accentColor: "#1669A9" }} />
+            {o}
+          </label>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function FileInput({ label, name, hint }) {
+  return (
+    <div>
+      <FieldLabel>
+        {label} {hint && <span className="text-xs font-normal" style={{ color: "#6B7280" }}>{hint}</span>}
+      </FieldLabel>
+      <input
+        name={name}
+        type="file"
+        accept="image/jpeg,image/png,application/pdf"
+        className="w-full text-sm"
+        style={{ color: "#374151" }}
+      />
+    </div>
+  );
+}
+
+function FormSection({ title, children }) {
+  return (
+    <div className="rounded-xl p-5" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+      <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>{title}</h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
+    </div>
+  );
+}
+
+/* ---------- Monument Setting: top section with sub-tabs ---------- */
+
+const OPEN_STATUSES = [
+  "new", "under_review", "cemetery_verification", "quote_pending",
+  "awaiting_approval", "approved", "scheduling", "in_progress", "on_hold",
+];
+const STATUS_LABELS = {
+  new: "New",
+  under_review: "Under Review",
+  cemetery_verification: "Cemetery Verification",
+  quote_pending: "Quote Pending",
+  awaiting_approval: "Awaiting Approval",
+  approved: "Approved",
+  scheduling: "Scheduling",
+  scheduled: "Scheduled",
+  in_progress: "In Progress",
+  completed: "Completed",
+  on_hold: "On Hold",
+  cancelled: "Cancelled",
+};
+
+function MonumentBadge({ status }) {
+  const cancelledOrHold = status === "cancelled" || status === "on_hold";
+  const bg = status === "completed" ? "#D1FAE5" : cancelledOrHold ? "#FEE2E2" : "#DBEAFE";
+  const color = status === "completed" ? "#065F46" : cancelledOrHold ? "#991B1B" : "#1669A9";
+  const border = status === "completed" ? "#A7F3D0" : cancelledOrHold ? "#FECACA" : "#BFDBFE";
+  return (
+    <span
+      className="inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-medium whitespace-nowrap"
+      style={{ backgroundColor: bg, color, borderColor: border }}
+    >
+      {STATUS_LABELS[status] || status}
+    </span>
+  );
+}
+
+function MonumentRequestTable({ requests, emptyLabel }) {
+  if (requests.length === 0) {
+    return (
+      <section className="rounded-2xl p-10 text-center" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5EAF0" }}>
+        <p className="text-sm" style={{ color: "#6B7280" }}>{emptyLabel}</p>
+      </section>
+    );
+  }
+  return (
+    <section className="rounded-2xl overflow-hidden" style={{ backgroundColor: "#FFFFFF", border: "1px solid #E5EAF0" }}>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead style={{ backgroundColor: "#F9FAFB" }}>
+            <tr className="text-left" style={{ color: "#6B7280" }}>
+              <th className="px-6 py-3 font-medium">Request #</th>
+              <th className="px-6 py-3 font-medium">Family</th>
+              <th className="px-6 py-3 font-medium">Cemetery</th>
+              <th className="px-6 py-3 font-medium">Care Package</th>
+              <th className="px-6 py-3 font-medium">Status</th>
+              <th className="px-6 py-3 font-medium">Scheduled</th>
+            </tr>
+          </thead>
+          <tbody>
+            {requests.map((r) => (
+              <tr key={r.id} className="border-t" style={{ borderColor: "#E5EAF0" }}>
+                <td className="px-6 py-4 font-medium" style={{ color: "#1A1A2E" }}>{r.requestNumber}</td>
+                <td className="px-6 py-4" style={{ color: "#333333" }}>{r.familyFirstName} {r.familyLastName}</td>
+                <td className="px-6 py-4" style={{ color: "#333333" }}>{r.cemeteryName}</td>
+                <td className="px-6 py-4" style={{ color: "#333333" }}>
+                  {r.carePackageOption === "care_549" ? "$549" : r.carePackageOption === "care_749" ? "$749" : "—"}
+                </td>
+                <td className="px-6 py-4"><MonumentBadge status={r.status} /></td>
+                <td className="px-6 py-4" style={{ color: "#333333" }}>
+                  {r.scheduledDate ? new Date(r.scheduledDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : "—"}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function MonumentSettingSection({ partnerName, partner, token }) {
+  const { error: toastError } = useToast();
+  const [tab, setTab] = useState("new"); // new | open | scheduled | completed
+  const [allRequests, setAllRequests] = useState([]);
+  const [loadingRequests, setLoadingRequests] = useState(false);
+
+  const tabs = [
+    { key: "new", label: "New Setting Request" },
+    { key: "open", label: "Open Requests" },
+    { key: "scheduled", label: "Scheduled" },
+    { key: "completed", label: "Completed" },
+  ];
+
+  const fetchMonumentRequests = async () => {
+    try {
+      setLoadingRequests(true);
+      const { data } = await axios.get(`${BASE_URL}/monument-setting`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAllRequests(data.requests || []);
+    } catch (err) {
+      toastError("Failed to load", "Could not fetch monument setting requests.");
+    } finally {
+      setLoadingRequests(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMonumentRequests();
+  }, []);
+
+  // Refetch whenever the partner switches into a tab that shows live
+  // status data, so an admin-side status change is never masked by
+  // stale data from the initial mount.
+  useEffect(() => {
+    if (tab === "open" || tab === "scheduled" || tab === "completed") {
+      fetchMonumentRequests();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
+
+  const openRequests = allRequests.filter((r) => OPEN_STATUSES.includes(r.status));
+  const scheduledRequests = allRequests.filter((r) => r.status === "scheduled");
+  const completedRequests = allRequests.filter((r) => r.status === "completed" || r.status === "cancelled");
+
+  return (
+    <>
+      <div className="mb-6">
+        <h1 className="text-2xl sm:text-3xl font-semibold" style={{ color: "#1A1A2E" }}>
+          Monument Setting
+        </h1>
+        <p className="text-sm mt-1" style={{ color: "#6B7280" }}>
+          Submit and track monument setting requests
+        </p>
+      </div>
+
+      <div className="flex gap-2 mb-8 border-b overflow-x-auto" style={{ borderColor: "#E5EAF0" }}>
+        {tabs.map((t) => (
+          <button
+            key={t.key}
+            onClick={() => setTab(t.key)}
+            className="px-4 py-2.5 text-sm font-medium whitespace-nowrap transition"
+            style={{
+              color: tab === t.key ? "#1669A9" : "#6B7280",
+              borderBottom: tab === t.key ? "2px solid #1669A9" : "2px solid transparent",
+            }}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "new" && (
+  <NewMonumentSettingForm
+    partnerName={partnerName}
+    partner={partner}
+    token={token}
+    onCreated={() => {
+      fetchMonumentRequests();
+      setTab("open");
+    }}
+  />
+)}
+      {tab === "open" && (
+        loadingRequests
+          ? <p className="text-sm text-center py-8" style={{ color: "#6B7280" }}>Loading…</p>
+          : <MonumentRequestTable requests={openRequests} emptyLabel="No open monument setting requests yet." />
+      )}
+
+      {tab === "scheduled" && (
+        loadingRequests
+          ? <p className="text-sm text-center py-8" style={{ color: "#6B7280" }}>Loading…</p>
+          : <MonumentRequestTable requests={scheduledRequests} emptyLabel="No scheduled monument settings yet." />
+      )}
+
+      {tab === "completed" && (
+        loadingRequests
+          ? <p className="text-sm text-center py-8" style={{ color: "#6B7280" }}>Loading…</p>
+          : <MonumentRequestTable requests={completedRequests} emptyLabel="No completed monument settings yet." />
+      )}
+    </>
+  );
+}
+
+/* ---------- Review screen: formatting helpers ---------- */
+
+function formatDisplay(value) {
+  if (value === null || value === undefined) return "—";
+  const str = String(value).trim();
+  return str === "" ? "—" : str;
+}
+
+// Parses a native <input type="date"> value ("YYYY-MM-DD") as a local
+// date, not UTC — new Date("YYYY-MM-DD") parses as UTC midnight and can
+// display one day early for users west of UTC.
+function formatDateStr(str) {
+  if (!str) return "—";
+  const [y, m, d] = str.split("-").map(Number);
+  if (!y || !m || !d) return "—";
+  return new Date(y, m - 1, d).toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+}
+
+// An unfilled <input type="file"> still yields a File object from
+// FormData.get() (name: "", size: 0), not null — filter those out.
+function formatFile(file) {
+  if (!file || typeof file === "string" || !file.name) return null;
+  return file;
+}
+
+function carePackageLabel(value) {
+  if (value === "care_549") return "Memorial Preventative Care Plan — $549";
+  if (value === "care_749") return "Premium Memorial Preventative Care Plan — $749";
+  if (value === "care_none") return "No Care Package";
+  return "Not selected";
+}
+
+// Reads the exact FormData that will be submitted and reshapes it into
+// the review groups the spec calls for. Nothing here is invented —
+// every value comes straight from a field already in the form.
+function buildReview(fd) {
+  return {
+    partner: {
+      companyName: fd.get("companyName"),
+      partnerLocation: fd.get("partnerLocation"),
+      salesRep: fd.get("salesRep"),
+      partnerEmail: fd.get("partnerEmail"),
+      partnerPhone: fd.get("partnerPhone"),
+      partnerOrderNumber: fd.get("partnerOrderNumber"),
+      internalRefNumber: fd.get("internalRefNumber"),
+    },
+    family: {
+      name: [fd.get("familyFirstName"), fd.get("familyLastName")].filter(Boolean).join(" "),
+      phone: fd.get("familyPhone"),
+      email: fd.get("familyEmail"),
+      address: [fd.get("familyAddress"), fd.get("familyCity"), fd.get("familyState"), fd.get("familyZip")]
+        .filter(Boolean)
+        .join(", "),
+      preferredContact: fd.get("preferredContact"),
+      allowContact: fd.get("allowContact") === "on" ? "Yes" : "No",
+    },
+    cemetery: {
+      name: fd.get("cemeteryName"),
+      address: [fd.get("cemeteryAddress"), fd.get("cemeteryCity"), fd.get("cemeteryState"), fd.get("cemeteryZip")]
+        .filter(Boolean)
+        .join(", "),
+      territory: fd.get("territory"),
+      contactName: fd.get("cemeteryContactName"),
+      contactPhone: fd.get("cemeteryPhone"),
+      contactEmail: fd.get("cemeteryEmail"),
+      sectionLotBlockSpace: [fd.get("section"), fd.get("lot"), fd.get("block"), fd.get("graveSpace")]
+        .filter(Boolean)
+        .join(" / "),
+      approval: fd.get("cemeteryApproval"),
+    },
+    monument: {
+      type: fd.get("monumentType"),
+      material: fd.get("material"),
+      dimensions: [fd.get("width"), fd.get("height"), fd.get("depth")].filter(Boolean).join(" x "),
+      weight: fd.get("weight"),
+      baseDimensions: fd.get("baseDimensions"),
+      numPieces: fd.get("numPieces"),
+    },
+    settingService: {
+      settingRequested: fd.get("settingRequested"),
+      monumentLocationType: fd.get("monumentLocationType"),
+      pickupAddress: fd.get("pickupAddress"),
+      pickupContactName: fd.get("pickupContactName"),
+      pickupPhone: fd.get("pickupPhone"),
+      readyForPickup: fd.get("readyForPickup"),
+      requestedPickupDate: fd.get("requestedPickupDate"),
+    },
+    requestedDate: {
+      requestedSettingDate: fd.get("requestedSettingDate"),
+      alternateDate: fd.get("alternateDate"),
+      deadlineDate: fd.get("deadlineDate"),
+      flexibleDates: fd.get("flexibleDates"),
+      deadlineReason: fd.get("deadlineReason"),
+      specialInstructions: fd.get("specialInstructions"),
+    },
+    documents: [
+      ["Cemetery Approval Document", fd.get("cemeteryApprovalDoc")],
+      ["Monument Front Photo", fd.get("photoFront")],
+      ["Monument Back Photo", fd.get("photoBack")],
+      ["Base Photo", fd.get("photoBase")],
+      ["Monument Drawing / Dimensions", fd.get("drawing")],
+      ["Cemetery Plot Information", fd.get("plotInfo")],
+      ["Foundation Photo", fd.get("foundationPhoto")],
+      ["Work Order", fd.get("workOrder")],
+      ["Additional Photos/Documents", fd.get("additionalDocs")],
+    ]
+      .map(([label, file]) => [label, formatFile(file)])
+      .filter(([, file]) => file !== null),
+    care: {
+      package: fd.get("carePackageOption"),
+      familyStatus: fd.get("careFamilyStatus"),
+    },
+  };
+}
+
+/* ---------- Review screen: display components ---------- */
+
+function ReviewRow({ label, value }) {
+  return (
+    <div>
+      <div className="text-xs font-medium" style={{ color: "#6B7280" }}>{label}</div>
+      <div className="text-sm mt-0.5" style={{ color: "#1A1A2E" }}>{formatDisplay(value)}</div>
+    </div>
+  );
+}
+
+function ReviewGroup({ title, children }) {
+  return (
+    <div className="rounded-xl p-5" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+      <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>{title}</h4>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">{children}</div>
+    </div>
+  );
+}
+
+/* ---------- Monument Setting: New Setting Request form ---------- */
+function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
+  const { success: toastSuccess, error: toastError } = useToast();
+  const [submittingMonument, setSubmittingMonument] = useState(false);
+  const [step, setStep] = useState("form"); // "form" | "review"
+  const [reviewData, setReviewData] = useState(null);
+
+  // Holds the exact FormData (with real File blobs) built on the
+  // "go to review" step, submitted only when the partner confirms.
+  const formDataRef = useRef(null);
+  // Stable reference to the actual <form> DOM node, captured
+  // synchronously — kept because the form stays mounted (just
+  // hidden) through the review step, so .reset() after a successful
+  // POST always targets a live node.
+  const formElRef = useRef(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault(); // native required-field validation already ran by this point
+    const fd = new FormData(e.currentTarget);
+    formDataRef.current = fd;
+    formElRef.current = e.currentTarget;
+    setReviewData(buildReview(fd));
+    setStep("review");
+  };
+
+  const handleBackToForm = () => {
+    setStep("form");
+  };
+
+  const handleConfirmSubmit = async () => {
+    const fd = formDataRef.current;
+    if (!fd) return;
+    try {
+      setSubmittingMonument(true);
+      const { data } = await axios.post(`${BASE_URL}/monument-setting/create-request`, fd, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      toastSuccess(
+        "Request submitted",
+        `Monument setting request ${data.request?.requestNumber || ""} created.`
+      );
+      formElRef.current?.reset();
+      setStep("form");
+      setReviewData(null);
+      formDataRef.current = null;
+      if (typeof onCreated === "function") onCreated();
+    } catch (err) {
+      const msg = err?.response?.data?.message || "Failed to submit monument setting request.";
+      toastError("Submission failed", msg);
+      // stay on the review screen so the partner can retry without re-filling anything
+    } finally {
+      setSubmittingMonument(false);
+    }
+  };
+
+  return (
+    <div>
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-6"
+        style={{ display: step === "form" ? undefined : "none" }}
+      >
+        <FormSection title="Partner Information">
+          <TextInput label="Company Name" name="companyName" defaultValue={partnerName} />
+          <TextInput label="Location" name="partnerLocation" />
+          <TextInput label="Sales Representative" name="salesRep" />
+          <TextInput label="Email" name="partnerEmail" type="email" defaultValue={partner?.username || ""} />
+          <TextInput label="Phone" name="partnerPhone" type="tel" defaultValue={partner?.phone || ""} />
+          <TextInput label="Partner Order Number" name="partnerOrderNumber" />
+          <TextInput label="Internal Reference Number" name="internalRefNumber" />
+        </FormSection>
+
+        <FormSection title="Family Information">
+          <TextInput label="First Name" name="familyFirstName" required />
+          <TextInput label="Last Name" name="familyLastName" required />
+          <TextInput label="Phone" name="familyPhone" type="tel" required />
+          <TextInput label="Email" name="familyEmail" type="email" required />
+          <TextInput label="Address" name="familyAddress" required />
+          <TextInput label="City" name="familyCity" required />
+          <TextInput label="State" name="familyState" required />
+          <TextInput label="ZIP" name="familyZip" required />
+          <RadioRow label="Preferred Contact" name="preferredContact" options={["Phone", "Text", "Email"]} defaultValue="Phone" />
+          <div className="sm:col-span-2 flex items-center gap-2">
+            <input type="checkbox" name="allowContact" id="allowContact" style={{ accentColor: "#1669A9" }} />
+            <label htmlFor="allowContact" className="text-sm" style={{ color: "#374151" }}>
+              Allow Lasting Legacy to contact the family regarding this setting request.
+            </label>
+          </div>
+        </FormSection>
+
+        <FormSection title="Cemetery Information">
+          <TextInput label="Cemetery Name" name="cemeteryName" required />
+          <TextInput label="Cemetery Address" name="cemeteryAddress" required />
+          <TextInput label="City" name="cemeteryCity" required />
+          <TextInput label="State" name="cemeteryState" required />
+          <TextInput label="ZIP" name="cemeteryZip" required />
+          <TextInput label="Territory" name="territory" placeholder="e.g. Midwest Region" />
+          <TextInput label="Cemetery Contact Name" name="cemeteryContactName" />
+          <TextInput label="Cemetery Phone" name="cemeteryPhone" type="tel" />
+          <TextInput label="Cemetery Email" name="cemeteryEmail" type="email" />
+          <TextInput label="Section" name="section" />
+          <TextInput label="Lot" name="lot" />
+          <TextInput label="Block" name="block" />
+          <TextInput label="Grave / Space" name="graveSpace" />
+          <SelectInput label="Cemetery Approval" name="cemeteryApproval" options={["Yes", "No", "Pending", "Unknown"]} />
+          <FileInput label="Cemetery Approval Document" name="cemeteryApprovalDoc" hint="(jpg, png, pdf)" />
+        </FormSection>
+
+        <FormSection title="Monument Information">
+          <SelectInput
+            label="Monument Type"
+            name="monumentType"
+            options={["Upright", "Flat Marker", "Slant", "Bevel", "Bench", "Companion", "Cremation Memorial", "Other"]}
+          />
+          <TextInput label="Granite / Material" name="material" />
+          <TextInput label="Width" name="width" />
+          <TextInput label="Height" name="height" />
+          <TextInput label="Depth" name="depth" />
+          <TextInput label="Approximate Weight" name="weight" />
+          <TextInput label="Base Dimensions" name="baseDimensions" />
+          <TextInput label="Number of Pieces" name="numPieces" type="number" />
+          <SelectInput
+            label="Setting Requested"
+            name="settingRequested"
+            options={["Setting Only", "Foundation + Setting", "Reset Existing Monument", "Existing Foundation", "New Foundation Required", "Removal and Reset", "Site Evaluation Needed", "Other"]}
+          />
+        </FormSection>
+
+        <FormSection title="Monument Location">
+          <SelectInput
+            label="Where is the monument currently located?"
+            name="monumentLocationType"
+            options={["Monument Company", "Manufacturer", "Cemetery", "Storage Facility", "Family", "Other"]}
+          />
+          <TextInput label="Pickup Address" name="pickupAddress" />
+          <TextInput label="Contact Name" name="pickupContactName" />
+          <TextInput label="Phone" name="pickupPhone" type="tel" />
+          <RadioRow label="Ready for Pickup" name="readyForPickup" options={["Yes", "No"]} defaultValue="No" />
+          <TextInput label="Requested Pickup Date" name="requestedPickupDate" type="date" />
+        </FormSection>
+
+        <FormSection title="Requested Setting Schedule">
+          <TextInput label="Requested Setting Date" name="requestedSettingDate" type="date" />
+          <TextInput label="Alternate Date" name="alternateDate" type="date" />
+          <TextInput label="Deadline Date" name="deadlineDate" type="date" />
+          <RadioRow label="Flexible Dates" name="flexibleDates" options={["Yes", "No"]} defaultValue="Yes" />
+          <SelectInput
+            label="Deadline Reason"
+            name="deadlineReason"
+            options={["Funeral / Service", "Anniversary", "Family Request", "Cemetery Requirement", "Other"]}
+          />
+          <div className="sm:col-span-2">
+            <TextAreaInput label="Special Instructions / Notes" name="specialInstructions" />
+          </div>
+        </FormSection>
+
+        <FormSection title="Uploads">
+          <FileInput label="Monument Front Photo" name="photoFront" />
+          <FileInput label="Monument Back Photo" name="photoBack" />
+          <FileInput label="Base Photo" name="photoBase" />
+          <FileInput label="Monument Drawing / Dimensions" name="drawing" />
+          <FileInput label="Cemetery Plot Information" name="plotInfo" />
+          <FileInput label="Foundation Photo" name="foundationPhoto" />
+          <FileInput label="Work Order" name="workOrder" />
+          <FileInput label="Additional Photos/Documents" name="additionalDocs" />
+        </FormSection>
+
+        <div className="rounded-xl p-5" style={{ backgroundColor: "#F0F7FF", border: "1px solid #BFDBFE" }}>
+          <h4 className="text-sm font-semibold mb-1" style={{ color: "#1669A9" }}>Memorial Preventative Care</h4>
+          <p className="text-sm mb-4" style={{ color: "#374151" }}>
+            Would the family like to protect and maintain their memorial after installation?
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+            {[
+              { value: "care_549", label: "Memorial Preventative Care Plan", price: "$549" },
+              { value: "care_749", label: "Premium Memorial Preventative Care Plan", price: "$749" },
+              { value: "care_none", label: "No Care Package", price: "" },
+            ].map((opt) => (
+              <label key={opt.value} className="rounded-lg p-4 cursor-pointer text-sm" style={{ backgroundColor: "#FFFFFF", border: "1px solid #D1D5DB" }}>
+                <input type="radio" name="carePackageOption" value={opt.value} className="mr-2" style={{ accentColor: "#1669A9" }} />
+                <span className="font-medium" style={{ color: "#1A1A2E" }}>{opt.label}</span>
+                {opt.price && <div className="text-lg font-bold mt-1" style={{ color: "#1669A9" }}>{opt.price}</div>}
+              </label>
+            ))}
+          </div>
+          <SelectInput
+            label="Family Status"
+            name="careFamilyStatus"
+            options={["Purchased $549 Package", "Purchased $749 Package", "Interested — Have Lasting Legacy Contact Them", "Information Requested", "Declined", "Not Discussed Yet"]}
+          />
+        </div>
+
+        <button
+          type="submit"
+          className="w-full h-12 rounded-lg text-sm font-semibold text-white transition"
+          style={{ backgroundColor: "#1669A9" }}
+          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#1E90CF")}
+          onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#1669A9")}
+        >
+          Review & Submit Setting Request
+        </button>
+      </form>
+
+      {step === "review" && reviewData && (
+        <div className="space-y-6">
+          <div className="rounded-xl p-4" style={{ backgroundColor: "#FEF3C7", border: "1px solid #FDE68A" }}>
+            <p className="text-sm" style={{ color: "#92400E" }}>
+              Please review the details below before submitting. Click Back to make changes.
+            </p>
+          </div>
+
+          <ReviewGroup title="Partner Information">
+            <ReviewRow label="Company Name" value={reviewData.partner.companyName} />
+            <ReviewRow label="Location" value={reviewData.partner.partnerLocation} />
+            <ReviewRow label="Sales Representative" value={reviewData.partner.salesRep} />
+            <ReviewRow label="Email" value={reviewData.partner.partnerEmail} />
+            <ReviewRow label="Phone" value={reviewData.partner.partnerPhone} />
+            <ReviewRow label="Partner Order Number" value={reviewData.partner.partnerOrderNumber} />
+            <ReviewRow label="Internal Reference Number" value={reviewData.partner.internalRefNumber} />
+          </ReviewGroup>
+
+          <ReviewGroup title="Family">
+            <ReviewRow label="Name" value={reviewData.family.name} />
+            <ReviewRow label="Phone" value={reviewData.family.phone} />
+            <ReviewRow label="Email" value={reviewData.family.email} />
+            <ReviewRow label="Address" value={reviewData.family.address} />
+            <ReviewRow label="Preferred Contact" value={reviewData.family.preferredContact} />
+            <ReviewRow label="Lasting Legacy May Contact Family" value={reviewData.family.allowContact} />
+          </ReviewGroup>
+
+          <ReviewGroup title="Cemetery">
+            <ReviewRow label="Cemetery Name" value={reviewData.cemetery.name} />
+            <ReviewRow label="Cemetery Address" value={reviewData.cemetery.address} />
+            <ReviewRow label="Territory" value={reviewData.cemetery.territory} />
+            <ReviewRow label="Cemetery Contact" value={reviewData.cemetery.contactName} />
+            <ReviewRow label="Cemetery Phone" value={reviewData.cemetery.contactPhone} />
+            <ReviewRow label="Cemetery Email" value={reviewData.cemetery.contactEmail} />
+            <ReviewRow label="Section / Lot / Block / Space" value={reviewData.cemetery.sectionLotBlockSpace} />
+            <ReviewRow label="Cemetery Approval" value={reviewData.cemetery.approval} />
+          </ReviewGroup>
+
+          <ReviewGroup title="Monument">
+            <ReviewRow label="Monument Type" value={reviewData.monument.type} />
+            <ReviewRow label="Material" value={reviewData.monument.material} />
+            <ReviewRow label="Dimensions (W x H x D)" value={reviewData.monument.dimensions} />
+            <ReviewRow label="Approximate Weight" value={reviewData.monument.weight} />
+            <ReviewRow label="Base Dimensions" value={reviewData.monument.baseDimensions} />
+            <ReviewRow label="Number of Pieces" value={reviewData.monument.numPieces} />
+          </ReviewGroup>
+
+          <ReviewGroup title="Setting Service">
+            <ReviewRow label="Setting Requested" value={reviewData.settingService.settingRequested} />
+            <ReviewRow label="Monument Currently Located At" value={reviewData.settingService.monumentLocationType} />
+            <ReviewRow label="Pickup Address" value={reviewData.settingService.pickupAddress} />
+            <ReviewRow label="Pickup Contact" value={reviewData.settingService.pickupContactName} />
+            <ReviewRow label="Pickup Phone" value={reviewData.settingService.pickupPhone} />
+            <ReviewRow label="Ready for Pickup" value={reviewData.settingService.readyForPickup} />
+            <ReviewRow label="Requested Pickup Date" value={formatDateStr(reviewData.settingService.requestedPickupDate)} />
+          </ReviewGroup>
+
+          <ReviewGroup title="Requested Date">
+            <ReviewRow label="Requested Setting Date" value={formatDateStr(reviewData.requestedDate.requestedSettingDate)} />
+            <ReviewRow label="Alternate Date" value={formatDateStr(reviewData.requestedDate.alternateDate)} />
+            <ReviewRow label="Deadline Date" value={formatDateStr(reviewData.requestedDate.deadlineDate)} />
+            <ReviewRow label="Flexible Dates" value={reviewData.requestedDate.flexibleDates} />
+            <ReviewRow label="Deadline Reason" value={reviewData.requestedDate.deadlineReason} />
+            <div className="sm:col-span-2">
+              <ReviewRow label="Special Instructions / Notes" value={reviewData.requestedDate.specialInstructions} />
+            </div>
+          </ReviewGroup>
+
+          <div className="rounded-xl p-5" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+            <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Uploaded Documents</h4>
+            {reviewData.documents.length === 0 ? (
+              <p className="text-sm" style={{ color: "#6B7280" }}>No documents uploaded.</p>
+            ) : (
+              <ul className="space-y-1">
+                {reviewData.documents.map(([label, file]) => (
+                  <li key={label} className="text-sm flex items-center gap-2 flex-wrap" style={{ color: "#1A1A2E" }}>
+                    <span style={{ color: "#1669A9" }}>📎</span>
+                    <span className="font-medium">{label}:</span>
+                    <span style={{ color: "#6B7280" }}>{file.name}</span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          <div className="rounded-xl p-5" style={{ backgroundColor: "#F0F7FF", border: "1px solid #BFDBFE" }}>
+            <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Preventative Care Selection</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <ReviewRow label="Package" value={carePackageLabel(reviewData.care.package)} />
+              <ReviewRow label="Family Status" value={reviewData.care.familyStatus} />
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse sm:flex-row gap-3 pt-2">
+            <button
+              type="button"
+              onClick={handleBackToForm}
+              disabled={submittingMonument}
+              className="flex-1 h-12 rounded-lg text-sm font-semibold transition disabled:opacity-60"
+              style={{ backgroundColor: "#FFFFFF", border: "1px solid #D1D5DB", color: "#374151" }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#F9FAFB"; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "#FFFFFF"; }}
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmSubmit}
+              disabled={submittingMonument}
+              className="flex-1 h-12 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
+              style={{ backgroundColor: "#1669A9" }}
+              onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#1E90CF")}
+              onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = "#1669A9")}
+            >
+              {submittingMonument ? "Submitting…" : "Submit Setting Request"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 
   const mapRequest = (r) => ({
@@ -305,12 +1071,43 @@ const sendPaymentRequest = async () => {
       </header>
 
       <main className="mx-auto max-w-7xl px-4 sm:px-6 py-8 sm:py-10">
-        <p className="sm:hidden text-sm mb-4" style={{ color: "#333333" }}>
+      <p className="sm:hidden text-sm mb-4" style={{ color: "#333333" }}>
           Welcome,{" "}
           <span className="font-semibold" style={{ color: "#1669A9" }}>
             {partnerName}
           </span>
         </p>
+
+        {/* Primary section nav */}
+             {/* Primary section nav */}
+             <div className="flex gap-2 mb-8">
+          {[
+            { key: "restoration", label: "Restoration Requests" },
+            { key: "monument", label: "Monument Setting" },
+          ].map((s) => (
+            <button
+              key={s.key}
+              onClick={() => setMainView(s.key)}
+              className="px-4 py-2 rounded-lg text-sm font-semibold transition"
+              style={{
+                backgroundColor: mainView === s.key ? "#1669A9" : "#FFFFFF",
+                color: mainView === s.key ? "#FFFFFF" : "#374151",
+                border: "1px solid " + (mainView === s.key ? "#1669A9" : "#D1D5DB"),
+              }}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+
+        {mainView === "monument" ? (
+  <MonumentSettingSection partnerName={partnerName} partner={partner} token={token} />
+) : (
+        <>
+        {/* Header + CTA */}
+
+
+
 
         {/* Header + CTA */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
@@ -529,12 +1326,14 @@ const sendPaymentRequest = async () => {
                       Completed {r.date}
                     </div>
                   </div>
-                ))}
-              </div>
-            </>
-          )}
-        </section>
-      </main>
+                              ))}
+                              </div>
+                            </>
+                          )}
+                        </section>
+                        </>
+                        )}
+                      </main>
 
       {/* New Request Modal */}
       {showNew && (
