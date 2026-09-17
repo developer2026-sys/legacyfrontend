@@ -380,7 +380,7 @@ export default function RegistrationPage({ onSuccess }) {
           <p className="text-center text-sm" style={{ color: "#6B7280" }}>
             Already have an account?{" "}
             <a
-              href="/app/"
+              href="/app"
               className="font-medium transition"
               style={{ color: "#1669A9" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#1E90CF")}
