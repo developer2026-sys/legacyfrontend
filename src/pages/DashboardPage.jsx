@@ -954,13 +954,20 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     const payload = new FormData();
     payload.append("packageType", pkg);
     payload.append("packagePrice", pkg === "basic_annual" ? "549" : "749");
-    payload.append("customerName", String(fd.get("customer") || ""));
-    payload.append("customerPhone", String(fd.get("phone") || ""));
-    payload.append("customerEmail", String(fd.get("email") || ""));
+    payload.append("customerName", String(fd.get("familyName") || ""));
+    payload.append("customerPhone", String(fd.get("phoneNumber") || ""));
+    payload.append("customerEmail", String(fd.get("emailAddress") || ""));
+    payload.append("nameOnMemorial", String(fd.get("nameOnMemorial") || ""));
+    payload.append("memorialSize", String(fd.get("memorialSize") || ""));
+    payload.append("memorialType", String(fd.get("memorialType") || ""));
     payload.append("memorialLocation", String(fd.get("location") || ""));
-    payload.append("notes", String(fd.get("notes") || ""));
+    payload.append("cemeteryName", String(fd.get("cemeteryName") || ""));
+    payload.append("section", String(fd.get("sectionGarden") || ""));
+    payload.append("lot", String(fd.get("lotNumber") || ""));
+    payload.append("space", String(fd.get("spaceNumber") || ""));
+    payload.append("vaseInfo", String(fd.get("vaseInformation") || ""));
+    payload.append("notes", String(fd.get("familyNotes") || ""));
     selectedPhotos.forEach((file) => payload.append("photos", file));
-  
     try {
       setSubmitting(true);
       const { data } = await axios.post(`${BASE_URL}/create-request`, payload, {
@@ -1368,60 +1375,167 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
             {/* Scrollable body */}
             <div className="overflow-y-auto flex-1 px-6 sm:px-8">
               <form className="space-y-5 py-6" onSubmit={submitNewRequest}>
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: "#374151" }}
-                  >
-                    Customer Name
-                  </label>
-                  <input
-                    name="customer"
-                    required
-                    className="w-full h-12 px-4 rounded-lg text-sm transition"
-                    style={inputStyle}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
+              <div>
+  <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+    Family / Contact Name
+  </label>
+  <input
+    name="familyName"
+    required
+    className="w-full h-12 px-4 rounded-lg text-sm transition"
+    style={inputStyle}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+  />
+</div>
 
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: "#374151" }}
-                  >
-                    Customer Phone
-                  </label>
-                  <input
-                    name="phone"
-                    type="tel"
-                    required
-                    placeholder="(000) 000-0000"
-                    className="w-full h-12 px-4 rounded-lg text-sm transition"
-                    style={inputStyle}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
+<div>
+  <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+    Name on Memorial
+  </label>
+  <input
+    name="nameOnMemorial"
+    required
+    placeholder="As it appears on the memorial"
+    className="w-full h-12 px-4 rounded-lg text-sm transition"
+    style={inputStyle}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+  />
+</div>
 
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: "#374151" }}
-                  >
-                    Customer Email
-                  </label>
-                  <input
-                    name="email"
-                    type="email"
-                    required
-                    placeholder="customer@example.com"
-                    className="w-full h-12 px-4 rounded-lg text-sm transition"
-                    style={inputStyle}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
+<div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+  <div>
+    <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+      Memorial Size
+    </label>
+    <input
+      name="memorialSize"
+      placeholder="e.g. 24&quot; x 12&quot;"
+      className="w-full h-12 px-4 rounded-lg text-sm transition"
+      style={inputStyle}
+      onFocus={handleInputFocus}
+      onBlur={handleInputBlur}
+    />
+  </div>
+  <div>
+    <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+      Memorial Type / Material
+    </label>
+    <input
+      name="memorialType"
+      placeholder="e.g. Upright, Granite"
+      className="w-full h-12 px-4 rounded-lg text-sm transition"
+      style={inputStyle}
+      onFocus={handleInputFocus}
+      onBlur={handleInputBlur}
+    />
+  </div>
+</div>
+
+<div>
+  <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+    Cemetery Name
+  </label>
+  <input
+    name="cemeteryName"
+    required
+    className="w-full h-12 px-4 rounded-lg text-sm transition"
+    style={inputStyle}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+  />
+</div>
+
+<div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+  <div>
+    <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+      Section / Garden
+    </label>
+    <input
+      name="sectionGarden"
+      className="w-full h-12 px-4 rounded-lg text-sm transition"
+      style={inputStyle}
+      onFocus={handleInputFocus}
+      onBlur={handleInputBlur}
+    />
+  </div>
+  <div>
+    <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+      Lot Number
+    </label>
+    <input
+      name="lotNumber"
+      className="w-full h-12 px-4 rounded-lg text-sm transition"
+      style={inputStyle}
+      onFocus={handleInputFocus}
+      onBlur={handleInputBlur}
+    />
+  </div>
+  <div>
+    <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+      Space Number
+    </label>
+    <input
+      name="spaceNumber"
+      className="w-full h-12 px-4 rounded-lg text-sm transition"
+      style={inputStyle}
+      onFocus={handleInputFocus}
+      onBlur={handleInputBlur}
+    />
+  </div>
+</div>
+
+<div>
+  <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+    Vase Information
+  </label>
+  <input
+    name="vaseInformation"
+    placeholder="e.g. single bronze vase, attached"
+    className="w-full h-12 px-4 rounded-lg text-sm transition"
+    style={inputStyle}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+  />
+</div>
+<div>
+  <label
+    className="block text-sm font-medium mb-2"
+    style={{ color: "#374151" }}
+  >
+    Phone Number
+  </label>
+  <input
+    name="phoneNumber"
+    type="tel"
+    required
+    placeholder="(000) 000-0000"
+    className="w-full h-12 px-4 rounded-lg text-sm transition"
+    style={inputStyle}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+  />
+</div>
+
+<div>
+  <label
+    className="block text-sm font-medium mb-2"
+    style={{ color: "#374151" }}
+  >
+    Email Address
+  </label>
+  <input
+    name="emailAddress"
+    type="email"
+    required
+    placeholder="name@example.com"
+    className="w-full h-12 px-4 rounded-lg text-sm transition"
+    style={inputStyle}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+  />
+</div>
 
                 <div>
   <label
@@ -1476,24 +1590,25 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                   </select>
                 </div>
 
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: "#374151" }}
-                  >
-                    Notes
-                  </label>
-                  <textarea
-                    name="notes"
-                    rows={3}
-                    placeholder="Any additional details..."
-                    className="w-full px-4 py-3 rounded-lg text-sm transition resize-none"
-                    style={inputStyle}
-                    onFocus={handleInputFocus}
-                    onBlur={handleInputBlur}
-                  />
-                </div>
+              
 
+                <div>
+  <label
+    className="block text-sm font-medium mb-2"
+    style={{ color: "#374151" }}
+  >
+    Family Notes / Special Concerns
+  </label>
+  <textarea
+    name="familyNotes"
+    rows={3}
+    placeholder="Any additional details or special concerns..."
+    className="w-full px-4 py-3 rounded-lg text-sm transition resize-none"
+    style={inputStyle}
+    onFocus={handleInputFocus}
+    onBlur={handleInputBlur}
+  />
+</div>
                 <div>
                   <label
                     className="block text-sm font-medium mb-2"

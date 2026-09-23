@@ -1,4 +1,4 @@
 // export const BASE_URL="http://localhost:5000/api"
-//  export const BASE_URL="https://lastinglegacycleaners.com/api"
+ export const BASE_URL="https://lastinglegacycleaners.com/api"
  
-export const BASE_URL="https://legacybackend.vercel.app/api"
+// export const BASE_URL="https://legacybackend.vercel.app/api"

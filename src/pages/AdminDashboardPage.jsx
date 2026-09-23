@@ -438,11 +438,19 @@ function RequestDetailModal({ request, token, onClose, onStatusChange, onPriceCh
       subtitle={`Submitted ${new Date(request.createdAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}`}
       onClose={onClose}
     >
-    <DetailRow label="Status" value={<StatusBadge status={status} />} />
-      <DetailRow label="Customer" value={request.customerName} />
+     <DetailRow label="Status" value={<StatusBadge status={status} />} />
+      <DetailRow label="Family / Contact" value={request.customerName} />
       <DetailRow label="Phone" value={request.customerPhone} />
       <DetailRow label="Email" value={request.customerEmail} />
+      <DetailRow label="Name on Memorial" value={request.nameOnMemorial} />
+      <DetailRow label="Memorial Size" value={request.memorialSize} />
+      <DetailRow label="Memorial Type / Material" value={request.memorialType} />
       <DetailRow label="Location" value={request.memorialLocation} />
+      <DetailRow label="Cemetery Name" value={request.cemeteryName} />
+      <DetailRow label="Section / Garden" value={request.section} />
+      <DetailRow label="Lot Number" value={request.lot} />
+      <DetailRow label="Space Number" value={request.space} />
+      <DetailRow label="Vase Information" value={request.vaseInfo} />
       <DetailRow label="Package" value={request.packageType === "basic_annual" ? "Basic Annual — $549" : "Premium Annual — $749"} />
       <DetailRow label="Price">
         <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
@@ -471,8 +479,7 @@ function RequestDetailModal({ request, token, onClose, onStatusChange, onPriceCh
       <DetailRow label="Approved At" value={request.approvedAt ? new Date(request.approvedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : null} />
       <DetailRow label="Denied By" value={request.deniedBy} />
       <DetailRow label="Denied At" value={request.deniedAt ? new Date(request.deniedAt).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" }) : null} />
-      {request.notes && <DetailRow label="Notes" value={request.notes} />}
-    
+      <DetailRow label="Family Notes / Special Concerns" value={request.notes} />
 
       {/* Documents */}
       <div style={{ marginTop: 20 }}>
