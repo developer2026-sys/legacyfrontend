@@ -132,14 +132,14 @@ function InviteModal({ token, onClose, onInvited }) {
       onInvited();
       onClose();
     } catch (e) {
-      err("Invite failed", e?.response?.data?.message || "Could not add team member.");
+      err("Invite failed", e?.response?.data?.message || "Could not add family advisor.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal title="Add Team Member" subtitle="They'll be able to log in once an admin approves the account." onClose={onClose}>
+    <Modal title="Add family advisor" subtitle="They'll be able to log in once an admin approves the account." onClose={onClose}>
       <Field label="Email Address">
         <input
           style={inputStyle} type="email"
@@ -178,7 +178,7 @@ function InviteModal({ token, onClose, onInvited }) {
       }}>
         <div style={{ color: primary, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Add limit</div>
           <div style={{ color: textSecondary, fontSize: 12 }}>
-          You can add a maximum of <strong>3 team members</strong>. Family advisors must replace their temporary password after signing in for the first time.
+          You can add a maximum of <strong>3 family advisors</strong>. Family advisors must replace their temporary password after signing in for the first time.
         </div>
       </div>
 
@@ -224,7 +224,7 @@ function SlotCard({ member, index, onInvite, onRequestChange, isEmpty }) {
           }}>+</div>
           <div>
             <div style={{ color: textMuted, fontSize: 13.5, fontWeight: 500 }}>Slot {index + 1} — Available</div>
-            <div style={{ color: textMuted, fontSize: 11.5, marginTop: 2 }}>No team member yet</div>
+            <div style={{ color: textMuted, fontSize: 11.5, marginTop: 2 }}>No family advisors yet</div>
           </div>
         </div>
         <ActionBtn onClick={onInvite} style={{ fontSize: 12, padding: "6px 14px" }}>
@@ -295,7 +295,7 @@ export default function PartnerTeamMembers({ token }) {
       });
       setMembers(data.teamMembers || []);
     } catch (e) {
-      err("Error", e?.response?.data?.message || "Failed to load team members.");
+      err("Error", e?.response?.data?.message || "Failed to load family advisors.");
     } finally {
       setLoading(false);
     }
@@ -331,7 +331,7 @@ export default function PartnerTeamMembers({ token }) {
     const reason = statusRequestReason.trim();
     if (!reason) return err("Reason required", "Add a reason for the request.");
     const partnerId = statusRequest?.member?.partner?.id || statusRequest?.member?.partner_id;
-    if (!partnerId) return err("Request failed", "Could not identify this team member.");
+    if (!partnerId) return err("Request failed", "Could not identify this family advisor.");
 
     try {
       setRequestingId(partnerId);
@@ -362,7 +362,7 @@ export default function PartnerTeamMembers({ token }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, color: textPrimary, margin: 0 }}>Team Members</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 700, color: textPrimary, margin: 0 }}>family advisors</h1>
             <p style={{ color: textMuted, fontSize: 13, marginTop: 5, marginBottom: 0 }}>
               Manage who has access to your partner account alongside you.
             </p>
@@ -408,7 +408,7 @@ export default function PartnerTeamMembers({ token }) {
         {/* Slot cards */}
         {loading ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>
-            Loading team members…
+            Loading family advisors…
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -438,7 +438,7 @@ export default function PartnerTeamMembers({ token }) {
             borderRadius: 12,
           }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>👥</div>
-            <div style={{ color: textPrimary, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No team members yet</div>
+            <div style={{ color: textPrimary, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No family advisors yet</div>
             <div style={{ color: textMuted, fontSize: 12.5, marginBottom: 16 }}>
               Add up to 3 teammates. They'll need admin approval before they can log in.
             </div>
@@ -458,7 +458,7 @@ export default function PartnerTeamMembers({ token }) {
       {statusRequest && (
         <Modal
           title={statusRequest.action === "remove" ? "Request User Removal" : "Request User Deactivation"}
-          subtitle={`${statusRequest.member?.partner?.email || "Team member"} · Super Admin approval required`}
+          subtitle={`${statusRequest.member?.partner?.email || "family advisor"} · Super Admin approval required`}
           onClose={() => {
             if (!requestingId) {
               setStatusRequest(null);

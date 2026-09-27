@@ -822,6 +822,12 @@
       catch { return "Admin"; }
     })();
 
+
+
+    const [csvSelectedAdvisors, setCsvSelectedAdvisors] = useState([]);
+    const [showCsvPanel, setShowCsvPanel] = useState(false);
+
+
     const [requests, setRequests] = useState([]);
     const [emailToggleId, setEmailToggleId] = useState(null);
     const [reqLoading, setReqLoading] = useState(true);
@@ -882,6 +888,65 @@
       finally { setPaymentQueueLoading(false); }
     }, [token, err]);
 
+
+
+    const buildAndDownloadCsv = () => {
+      const advisorIds = csvSelectedAdvisors.length > 0
+        ? csvSelectedAdvisors
+        : requestUserOptions.map(([id]) => id); // if none selected, export all
+    
+      const escapeCsv = (value) => {
+        const str = String(value ?? '');
+        return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+      };
+    
+      const rows = [];
+      rows.push(['Advisor', 'Submitted Count', 'Completed Count']);
+    
+      advisorIds.forEach((advisorId) => {
+        const advisorRequests = requests.filter(
+          (r) => String(r.submittedByUserId || r.partnerId) === String(advisorId)
+        );
+        const advisorLabel = advisorRequests[0]?.partner?.username
+          || advisorRequests[0]?.partner?.email
+          || `Advisor #${advisorId}`;
+        const submittedCount = advisorRequests.length;
+        const completedCount = advisorRequests.filter((r) => r.status === 'COMPLETED').length;
+        rows.push([advisorLabel, submittedCount, completedCount]);
+      });
+    
+      rows.push([]);
+      rows.push(['Advisor', 'Request ID', 'Customer', 'Status', 'Submitted', 'Completed']);
+    
+      advisorIds.forEach((advisorId) => {
+        const advisorRequests = requests.filter(
+          (r) => String(r.submittedByUserId || r.partnerId) === String(advisorId)
+        );
+        advisorRequests.forEach((r) => {
+          const advisorLabel = r.partner?.username || r.partner?.email || `Advisor #${advisorId}`;
+          rows.push([
+            advisorLabel,
+            r.requestNumber || `#${r.id}`,
+            r.customerName || '',
+            getRequestStatusLabel(r.status),
+            r.submittedAt ? new Date(r.submittedAt).toLocaleDateString('en-US') : '',
+            r.completedAt ? new Date(r.completedAt).toLocaleDateString('en-US') : '',
+          ]);
+        });
+      });
+    
+      const csvContent = rows.map((row) => row.map(escapeCsv).join(',')).join('\n');
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `advisor-requests-${new Date().toISOString().slice(0, 10)}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    };
+
     const fetchPartners = useCallback(async () => {
       try {
         setPartLoading(true);
@@ -896,7 +961,7 @@
         setPtmLoading(true);
         const { data } = await axios.get(`${BASE_URL}/admin/partner-team-members`, { headers: { Authorization: `Bearer ${token}` } });
         setPartnerTeamMembers(data.partnerTeamMembers || []);
-      } catch { err("Error", "Failed to load partner team members."); }
+      } catch { err("Error", "Failed to load partner family advisors."); }
       finally { setPtmLoading(false); }
     }, [token, err]);
 
@@ -1109,7 +1174,7 @@
       try {
         setPtmActioningId(id);
         await axios.patch(`${BASE_URL}/admin/partner-team-members/${id}/${decision}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-        ok(decision === "approve" ? "Approved" : "Denied", `Team member request has been ${decision === "approve" ? "approved" : "denied"}.`);
+        ok(decision === "approve" ? "Approved" : "Denied", `family advisor request has been ${decision === "approve" ? "approved" : "denied"}.`);
         setPartnerTeamMembers(prev => prev.map(m => m.id === id ? { ...m, status: decision === "approve" ? "approved" : "denied" } : m));
       } catch (e) {
         err("Failed", e?.response?.data?.message || `Could not ${decision} this request.`);
@@ -1293,7 +1358,7 @@
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 28 }}>
           <StatCard label="Total Clients"              value={stats.totalClients} sublabel="Distinct client accounts" icon="🏢" onClick={() => goToRequestsFiltered("all")} />
           <StatCard label="Active Users"                value={stats.activeUsers} sublabel="Partners currently active" icon="👤" onClick={() => setTab("partners")} />
-          <StatCard label="Pending Approvals"           value={stats.userApprovalQueue} sublabel="Users + team members awaiting approval" icon="🕓" onClick={() => setTab("partnerTeamMembers")} />
+          <StatCard label="Pending Approvals"           value={stats.userApprovalQueue} sublabel="Users + family advisors awaiting approval" icon="🕓" onClick={() => setTab("partnerTeamMembers")} />
           <StatCard label="New Requests"                value={stats.newRequestsThisWeek} sublabel="Submitted in the last 7 days" icon="🆕" onClick={() => goToRequestsFiltered("all")} />
           <StatCard label="Awaiting Approval"           value={stats.awaitingApproval} sublabel="Submitted or under review" icon="⏳" onClick={() => setTab("approvalQueue")} />
           <StatCard label="Invoices Awaiting Payment"   value={stats.invoicesAwaitingPayment} sublabel="Pending payment confirmation" icon="🧾" onClick={() => setTab("paymentConfirmationQueue")} />
@@ -1313,7 +1378,7 @@
             <Tab label="Requests" active={tab === "requests"} onClick={() => setTab("requests")} count={requests.length} />
             <Tab label="Pricing" active={tab === "pricing"} onClick={() => setTab("pricing")} />
             <Tab label="Partners" active={tab === "partners"} onClick={() => setTab("partners")} count={partners.length} />
-            <Tab label="Partner Team Members" active={tab === "partnerTeamMembers"} onClick={() => setTab("partnerTeamMembers")} count={partnerTeamMembers.length} />
+            <Tab label="Partner family advisors" active={tab === "partnerTeamMembers"} onClick={() => setTab("partnerTeamMembers")} count={partnerTeamMembers.length} />
             <Tab label="Monument Setting" active={tab === "monumentSetting"} onClick={() => setTab("monumentSetting")} count={monumentRequests.length} />
           </div>
 
@@ -1472,7 +1537,46 @@
                 </select>
                 <label style={{ color: textMuted, fontSize: 11.5 }}>From <input aria-label="Request from date" type="date" value={queueFilters.fromDate} onChange={e => setQueueFilters(prev => ({ ...prev, fromDate: e.target.value }))} style={{ ...inputStyle, width: 130, height: 36, fontSize: 12 }} /></label>
                 <label style={{ color: textMuted, fontSize: 11.5 }}>To <input aria-label="Request to date" type="date" value={queueFilters.toDate} onChange={e => setQueueFilters(prev => ({ ...prev, toDate: e.target.value }))} style={{ ...inputStyle, width: 130, height: 36, fontSize: 12 }} /></label>
-                <span style={{ color: textMuted, fontSize: 12, marginLeft: "auto" }}>{filteredRequests.length} result{filteredRequests.length !== 1 ? "s" : ""}</span>
+                <div style={{ position: "relative", marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
+  <span style={{ color: textMuted, fontSize: 12 }}>{filteredRequests.length} result{filteredRequests.length !== 1 ? "s" : ""}</span>
+  <ActionBtn onClick={() => setShowCsvPanel(prev => !prev)} color={primary} hoverColor={primaryHover}>
+    Export CSV
+  </ActionBtn>
+  {showCsvPanel && (
+    <div style={{
+      position: "absolute", top: "110%", right: 0, zIndex: 30,
+      backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 10,
+      boxShadow: "0 8px 24px rgba(0,0,0,0.12)", padding: 16, width: 280,
+    }}>
+      <div style={{ color: textPrimary, fontSize: 13, fontWeight: 700, marginBottom: 8 }}>
+        Select advisors (leave empty for all)
+      </div>
+      <div style={{ maxHeight: 220, overflowY: "auto", display: "flex", flexDirection: "column", gap: 6, marginBottom: 12 }}>
+        {requestUserOptions.map(([id, label]) => (
+          <label key={id} style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 12.5, color: textSecondary, cursor: "pointer" }}>
+            <input
+              type="checkbox"
+              checked={csvSelectedAdvisors.includes(id)}
+              onChange={(e) => {
+                setCsvSelectedAdvisors(prev =>
+                  e.target.checked ? [...prev, id] : prev.filter(x => x !== id)
+                );
+              }}
+              style={{ accentColor: primary }}
+            />
+            {label}
+          </label>
+        ))}
+      </div>
+      <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
+        <GhostBtn onClick={() => { setCsvSelectedAdvisors([]); setShowCsvPanel(false); }}>Cancel</GhostBtn>
+        <ActionBtn onClick={() => { buildAndDownloadCsv(); setShowCsvPanel(false); }} color="#059669" hoverColor="#047857">
+          Download
+        </ActionBtn>
+      </div>
+    </div>
+  )}
+</div>
               </div>
 
               {reqLoading ? (
@@ -1664,14 +1768,14 @@
   {tab === "partnerTeamMembers" && (
             <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderTop: `3px solid ${primary}` }}>
               <div style={{ padding: "14px 18px 13px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FAFBFC" }}>
-                <div style={{ color: textPrimary, fontSize: 15, fontWeight: 700 }}>Partner Team Members</div>
+                <div style={{ color: textPrimary, fontSize: 15, fontWeight: 700 }}>Partner family advisors</div>
                 <span style={{ color: textMuted, fontSize: 12 }}>{partnerTeamMembers.length} total</span>
               </div>
 
               {ptmLoading ? (
-                <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading partner team members…</div>
+                <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading partner family advisors…</div>
               ) : partnerTeamMembers.length === 0 ? (
-                <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>No partner team member requests yet.</div>
+                <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>No partner family advisors requests yet.</div>
               ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>

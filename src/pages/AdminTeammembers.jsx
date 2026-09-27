@@ -105,18 +105,18 @@ function InviteModal({ token, onClose, onInvited }) {
         { email: form.email, password: form.password },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      ok("Team member invited", `${form.email} has been added to your team.`);
+      ok("family advisor invited", `${form.email} has been added to your team.`);
       onInvited();
       onClose();
     } catch (e) {
-      err("Invite failed", e?.response?.data?.message || "Could not add team member.");
+      err("Invite failed", e?.response?.data?.message || "Could not add family advisor.");
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <Modal title="Add Team Member" subtitle="They will be able to log in using these credentials." onClose={onClose}>
+    <Modal title="Add family advisor" subtitle="They will be able to log in using these credentials." onClose={onClose}>
       <Field label="Email Address">
         <input
           style={inputStyle} type="email"
@@ -149,7 +149,7 @@ function InviteModal({ token, onClose, onInvited }) {
       }}>
         <div style={{ color: primary, fontSize: 12, fontWeight: 600, marginBottom: 2 }}>Add limit</div>
         <div style={{ color: textSecondary, fontSize: 12 }}>
-          You can add a maximum of <strong>3 team members</strong>. Each team member shares your admin access level.
+          You can add a maximum of <strong>3 family advisors</strong>. Each family advisor shares your admin access level.
         </div>
       </div>
 
@@ -195,7 +195,7 @@ function SlotCard({ member, index, onInvite, isEmpty }) {
           }}>+</div>
           <div>
             <div style={{ color: textMuted, fontSize: 13.5, fontWeight: 500 }}>Slot {index + 1} — Available</div>
-            <div style={{ color: textMuted, fontSize: 11.5, marginTop: 2 }}>No team member yet</div>
+            <div style={{ color: textMuted, fontSize: 11.5, marginTop: 2 }}>No family advisor yet</div>
           </div>
         </div>
         <ActionBtn onClick={onInvite} style={{ fontSize: 12, padding: "6px 14px" }}>
@@ -228,7 +228,7 @@ function SlotCard({ member, index, onInvite, isEmpty }) {
         fontSize: 11, letterSpacing: "0.06em", padding: "3px 10px", borderRadius: 999,
         backgroundColor: "rgba(22,105,169,0.08)", color: primary,
         border: `1px solid ${borderPrimary}`, fontWeight: 600,
-      }}>Team Member</span>
+      }}>family advisor</span>
     </div>
   );
 }
@@ -249,7 +249,7 @@ export default function TeamMembers({ token }) {
       });
       setMembers(data.teamMembers || []);
     } catch (e) {
-      err("Error", e?.response?.data?.message || "Failed to load team members.");
+      err("Error", e?.response?.data?.message || "Failed to load family advisors.");
     } finally {
       setLoading(false);
     }
@@ -280,7 +280,7 @@ export default function TeamMembers({ token }) {
         {/* Header */}
         <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
           <div>
-            <h1 style={{ fontSize: 26, fontWeight: 700, color: textPrimary, margin: 0 }}>Team Members</h1>
+            <h1 style={{ fontSize: 26, fontWeight: 700, color: textPrimary, margin: 0 }}>family advisors</h1>
             <p style={{ color: textMuted, fontSize: 13, marginTop: 5, marginBottom: 0 }}>
               Manage who has access to the admin panel alongside you.
             </p>
@@ -326,7 +326,7 @@ export default function TeamMembers({ token }) {
         {/* Slot cards */}
         {loading ? (
           <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>
-            Loading team members…
+            Loading family advisors…
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
@@ -352,7 +352,7 @@ export default function TeamMembers({ token }) {
             borderRadius: 12,
           }}>
             <div style={{ fontSize: 32, marginBottom: 10 }}>👥</div>
-            <div style={{ color: textPrimary, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No team members yet</div>
+            <div style={{ color: textPrimary, fontSize: 14, fontWeight: 600, marginBottom: 4 }}>No family advisors yet</div>
             <div style={{ color: textMuted, fontSize: 12.5, marginBottom: 16 }}>
               Add up to 3 admins to collaborate with you.
             </div>
