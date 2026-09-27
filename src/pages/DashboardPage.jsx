@@ -79,7 +79,133 @@ function paymentStatusLabel(request) {
   return request.invoicePaymentStatus ? "Payment pending" : "—";
 }
 
+function formatRoleLabel(role) {
+  if (role === "client_admin") return "Client Admin";
+  if (role === "family_advisor") return "Family Advisor";
+  if (!role) return "";
+  return role.replaceAll("_", " ").replace(/\b\w/g, (c) => c.toUpperCase());
+}
+
+function DetailRow({ label, value }) {
+  return (
+    <div>
+      <div className="text-xs font-medium" style={{ color: "#6B7280" }}>{label}</div>
+      <div className="text-sm mt-0.5" style={{ color: "#1A1A2E" }}>{value || "—"}</div>
+    </div>
+  );
+}
+
+function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClose }) {
+  const statusHistory = [...(request.statusHistory || [])].sort(
+    (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
+  );
+  const scheduledDate = request.workOrder?.schedules?.[0]?.scheduledDate;
+  const windowStart = request.workOrder?.schedules?.[0]?.windowStart;
+  const windowEnd = request.workOrder?.schedules?.[0]?.windowEnd;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" style={{ backgroundColor: "rgba(26,26,46,0.5)" }} onClick={onClose}>
+      <section className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl p-6" style={{ backgroundColor: "#FFFFFF" }} onClick={(event) => event.stopPropagation()}>
+        <div className="flex items-start justify-between gap-4 mb-5">
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: "#1A1A2E" }}>
+              {request.requestNumber || `#${request.id}`} · {request.customerName}
+            </h2>
+            <p className="text-sm mt-1" style={{ color: "#6B7280" }}>{request.memorialLocation}</p>
+          </div>
+          <button type="button" onClick={onClose} aria-label="Close details" className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E5EAF0", color: "#374151" }}>Close</button>
+        </div>
+
+        <div className="mb-5"><StatusBadge status={request.status} /></div>
+
+        <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+          <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Family / Contact</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailRow label="Family / Contact Name" value={request.customerName} />
+            <DetailRow label="Name on Memorial" value={request.nameOnMemorial} />
+            <DetailRow label="Phone" value={request.customerPhone} />
+            <DetailRow label="Email" value={request.customerEmail} />
+          </div>
+        </div>
+
+        <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+          <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Memorial Details</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailRow label="Memorial Size" value={request.memorialSize} />
+            <DetailRow label="Memorial Type / Material" value={request.memorialType} />
+            <DetailRow label="Section / Garden" value={request.section} />
+            <DetailRow label="Lot Number" value={request.lot} />
+            <DetailRow label="Space Number" value={request.space} />
+            <DetailRow label="Vase Information" value={request.vaseInfo} />
+          </div>
+        </div>
+
+        <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+          <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Package & Property</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailRow label="Property" value={request.memorialLocation} />
+            <DetailRow label="Package" value={request.packageNameSnapshot || request.package?.name} />
+            {priceVisibility === "customer_retail" && request.customerRetailPrice != null && (
+              <DetailRow label="Customer Retail Price" value={`$${Number(request.customerRetailPrice).toFixed(2)}`} />
+            )}
+            {priceVisibility === "restoration" && request.restorationPrice != null && (
+              <DetailRow label="Restoration Price" value={`$${Number(request.restorationPrice).toFixed(2)}`} />
+            )}
+          </div>
+        </div>
+
+        {!isFamilyAdvisor && (
+          <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+            <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Payment & Invoice</h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <DetailRow label="Payment Status" value={paymentStatusLabel({ invoicePaymentStatus: request.invoice?.paymentStatus, invoicePaidDate: request.invoice?.paidDate })} />
+              <DetailRow label="Invoice Number" value={request.invoice?.invoiceNumber} />
+              <DetailRow label="Invoice Amount" value={request.invoiceAmount != null ? `$${Number(request.invoiceAmount).toFixed(2)}` : null} />
+            </div>
+          </div>
+        )}
+
+        <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+          <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Schedule</h4>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <DetailRow label="Scheduled Date" value={scheduledDate} />
+            <DetailRow label="Service Window" value={[windowStart, windowEnd].filter(Boolean).join(" – ") || null} />
+            <DetailRow label="Submitted" value={request.submittedAt || request.createdAt ? new Date(request.submittedAt || request.createdAt).toLocaleString() : null} />
+          </div>
+        </div>
+
+        <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+          <h4 className="text-sm font-semibold mb-2" style={{ color: "#1669A9" }}>Supporting Notes</h4>
+          <p className="text-sm whitespace-pre-wrap" style={{ color: "#4B5563" }}>{request.notes || "No notes recorded."}</p>
+        </div>
+
+        <h3 className="text-sm font-semibold mb-3" style={{ color: "#1A1A2E" }}>Status history</h3>
+        {statusHistory.length === 0 ? (
+          <p className="text-sm" style={{ color: "#6B7280" }}>No status history is available.</p>
+        ) : (
+          <ol className="space-y-3">
+            {statusHistory.map((event) => (
+              <li key={event.id} className="border-l-2 pl-4 py-1" style={{ borderColor: "#BFDBFE" }}>
+                <div className="text-sm font-medium" style={{ color: "#1A1A2E" }}>
+                  {event.fromStatus ? `${getRequestStatusLabel(event.fromStatus)} → ` : ""}
+                  {getRequestStatusLabel(event.toStatus)}
+                </div>
+                <div className="text-xs mt-1" style={{ color: "#6B7280" }}>
+                  {event.createdAt ? new Date(event.createdAt).toLocaleString() : "Time unavailable"}
+                </div>
+                {event.reason && <p className="text-sm mt-1" style={{ color: "#4B5563" }}>{event.reason}</p>}
+              </li>
+            ))}
+          </ol>
+        )}
+      </section>
+    </div>
+  );
+}
+
 export default function DashboardPage({ partnerName = "Partner", partner = null, token, onLogout }) {
+
+
   const { success: toastSuccess, error: toastError } = useToast();
   const [active, setActive] = useState([]);
   const [completed, setCompleted] = useState([]);
@@ -99,7 +225,9 @@ export default function DashboardPage({ partnerName = "Partner", partner = null,
 
   const [showSubmissionConfirmation, setShowSubmissionConfirmation] = useState(false);
   const [submittedPkg, setSubmittedPkg] = useState(null);
+  const [selectedRequest, setSelectedRequest] = useState(null);
   const isFamilyAdvisor = partner?.accountRole === "family_advisor";
+
 
 // Monument Setting — top-level dashboard section switch
 const [mainView, setMainView] = useState("restoration"); // "restoration" | "monument"
@@ -1229,11 +1357,19 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
          <PartnerTeammemberButton/>
           </div>
           <div className="flex items-center gap-4 sm:gap-6">
-            <span className="hidden sm:block text-sm" style={{ color: "#333333" }}>
+          <span className="hidden sm:block text-sm" style={{ color: "#333333" }}>
               Welcome,{" "}
               <span className="font-semibold" style={{ color: "#1669A9" }}>
                 {partnerName}
               </span>
+              {partner?.accountRole && (
+                <span
+                  className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+                  style={{ backgroundColor: "#EFF6FF", color: "#1669A9", border: "1px solid #BFDBFE" }}
+                >
+                  {formatRoleLabel(partner.accountRole)}
+                </span>
+              )}
             </span>
             <button
               onClick={handleLogout}
@@ -1276,6 +1412,14 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
           <span className="font-semibold" style={{ color: "#1669A9" }}>
             {partnerName}
           </span>
+          {partner?.accountRole && (
+            <span
+              className="ml-2 inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium"
+              style={{ backgroundColor: "#EFF6FF", color: "#1669A9", border: "1px solid #BFDBFE" }}
+            >
+              {formatRoleLabel(partner.accountRole)}
+            </span>
+          )}
         </p>
 
         {/* Primary section nav */}
@@ -1283,7 +1427,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
              <div className="flex gap-2 mb-8">
           {[
             { key: "restoration", label: "Restoration Requests" },
-            { key: "monument", label: "Monument Setting" },
+            // { key: "monument", label: "Monument Setting" },
           ].map((s) => (
             <button
               key={s.key}
@@ -1313,7 +1457,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-semibold" style={{ color: "#1A1A2E" }}>
-              Restoration Requests
+             Admin Restoration Requests
             </h1>
             <p className="text-sm mt-1" style={{ color: "#6B7280" }}>
               Manage your memorial restoration requests
@@ -1444,7 +1588,14 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                     {active.map((r) => {
                       const lastReturn = latestReturnDecision(r);
                       return (
-                      <tr key={r.id} className="border-t" style={{ borderColor: "#E5EAF0" }}>
+                        <tr
+                        key={r.id}
+                        className="border-t cursor-pointer transition"
+                        style={{ borderColor: "#E5EAF0" }}
+                        onClick={() => setSelectedRequest(rawRequests.find((raw) => raw.id === r.id))}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#F9FAFB"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                      >
                         <td className="px-6 py-4 font-medium" style={{ color: "#1A1A2E" }}>
                           {r.customer}
                         </td>
@@ -1485,13 +1636,14 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
 
               {/* Mobile cards */}
               <div className="md:hidden divide-y">
-                {active.map((r) => {
+              {active.map((r) => {
                   const lastReturn = latestReturnDecision(r);
                   return (
                   <div
                     key={r.id}
-                    className="p-5 space-y-2"
+                    className="p-5 space-y-2 cursor-pointer"
                     style={{ borderTop: "1px solid #E5EAF0" }}
+                    onClick={() => setSelectedRequest(rawRequests.find((raw) => raw.id === r.id))}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="font-semibold" style={{ color: "#1A1A2E" }}>
@@ -1568,8 +1720,15 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {completed.map((r) => (
-                      <tr key={r.id} className="border-t" style={{ borderColor: "#E5EAF0" }}>
+                  {completed.map((r) => (
+                      <tr
+                        key={r.id}
+                        className="border-t cursor-pointer transition"
+                        style={{ borderColor: "#E5EAF0" }}
+                        onClick={() => setSelectedRequest(rawRequests.find((raw) => raw.id === r.id))}
+                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = "#F9FAFB"; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = "transparent"; }}
+                      >
                         <td className="px-6 py-4" style={{ color: "#333333" }}>
                           {r.customer}
                         </td>
@@ -1598,11 +1757,12 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
 
               {/* Mobile cards */}
               <div className="md:hidden">
-                {completed.map((r) => (
+              {completed.map((r) => (
                   <div
                     key={r.id}
-                    className="p-5 space-y-2"
+                    className="p-5 space-y-2 cursor-pointer"
                     style={{ borderTop: "1px solid #E5EAF0" }}
+                    onClick={() => setSelectedRequest(rawRequests.find((raw) => raw.id === r.id))}
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="font-semibold" style={{ color: "#333333" }}>
@@ -2208,7 +2368,6 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
             </div>
           )}
         </div>
-
         <button
           type="button"
           onClick={() => setShowSubmissionConfirmation(false)}
@@ -2220,6 +2379,15 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
       </div>
     </div>
   </div>
+)}
+
+{selectedRequest && (
+  <RequestDetailsDialog
+    request={selectedRequest}
+    isFamilyAdvisor={isFamilyAdvisor}
+    priceVisibility={priceVisibility}
+    onClose={() => setSelectedRequest(null)}
+  />
 )}
     </div>
   );

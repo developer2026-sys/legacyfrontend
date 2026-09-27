@@ -415,8 +415,6 @@
     const [docsLoading, setDocsLoading] = useState(true);
     const schedule = request.workOrder?.schedules?.[0] || {};
     const [scheduledDate, setScheduledDate] = useState(schedule.scheduledDate || "");
-    const [windowStart, setWindowStart] = useState(schedule.windowStart || "");
-    const [windowEnd, setWindowEnd] = useState(schedule.windowEnd || "");
     const [technicianName, setTechnicianName] = useState(request.workOrder?.assignedTechnicianName || "");
     const [internalNotes, setInternalNotes] = useState(request.workOrder?.internalNotes || "");
     const [serviceNotes, setServiceNotes] = useState(request.workOrder?.serviceNotes || "");
@@ -500,9 +498,8 @@
         const formData = new FormData();
         formData.append("operation", operation);
         if (scheduledDate) formData.append("scheduledDate", scheduledDate);
-        if (windowStart) formData.append("windowStart", windowStart);
-        if (windowEnd) formData.append("windowEnd", windowEnd);
         if (technicianName) formData.append("technicianName", technicianName);
+
         if (internalNotes) formData.append("internalNotes", internalNotes);
         if (serviceNotes) formData.append("serviceNotes", serviceNotes);
         if (completionDetails) formData.append("completionDetails", completionDetails);
@@ -632,12 +629,6 @@
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
               <Field label="Service date">
                 <input type="date" value={scheduledDate} onChange={e => setScheduledDate(e.target.value)} style={inputStyle} />
-              </Field>
-              <Field label="Window start">
-                <input type="time" value={windowStart} onChange={e => setWindowStart(e.target.value)} style={inputStyle} />
-              </Field>
-              <Field label="Window end">
-                <input type="time" value={windowEnd} onChange={e => setWindowEnd(e.target.value)} style={inputStyle} />
               </Field>
               <Field label="Technician / provider">
                 <input value={technicianName} onChange={e => setTechnicianName(e.target.value)} placeholder="Assigned provider" style={inputStyle} />
@@ -785,14 +776,25 @@
 
   // ─── Stat Card ────────────────────────────────────────────────────────────────
   // ─── Stat Card ────────────────────────────────────────────────────────────────
-  function StatCard({ label, value, sublabel, icon }) {
+  function StatCard({ label, value, sublabel, icon, onClick }) {
+    const [hov, setHov] = useState(false);
+    const clickable = typeof onClick === "function";
     return (
-      <div style={{
-        backgroundColor: surface, border: `1px solid ${border}`,
-        borderRadius: 14, padding: "20px 22px",
-        display: "flex", alignItems: "flex-start", gap: 16,
-        boxShadow: "0 1px 4px rgba(0,0,0,0.05)",
-      }}>
+      <div
+        onClick={onClick}
+        onMouseEnter={() => clickable && setHov(true)}
+        onMouseLeave={() => clickable && setHov(false)}
+        style={{
+          backgroundColor: surface,
+          border: `1px solid ${clickable && hov ? borderPrimary : border}`,
+          borderRadius: 14, padding: "20px 22px",
+          display: "flex", alignItems: "flex-start", gap: 16,
+          boxShadow: clickable && hov ? "0 4px 14px rgba(22,105,169,0.12)" : "0 1px 4px rgba(0,0,0,0.05)",
+          cursor: clickable ? "pointer" : "default",
+          transform: clickable && hov ? "translateY(-1px)" : "none",
+          transition: "all .15s",
+        }}
+      >
         <div style={{
           width: 48, height: 48, borderRadius: "50%", flexShrink: 0,
           backgroundColor: primary, color: "#fff",
@@ -801,12 +803,13 @@
         }}>{icon}</div>
         <div>
           <div style={{ color: textPrimary, fontSize: 26, fontWeight: 700, lineHeight: 1.2 }}>{value}</div>
-          <div style={{ color: textPrimary, fontSize: 13.5, fontWeight: 600, marginTop: 2 }}>{label}</div>
+          <div style={{ color: clickable ? primary : textPrimary, fontSize: 13.5, fontWeight: 600, marginTop: 2 }}>{label}</div>
           {sublabel && <div style={{ color: textMuted, fontSize: 11.5, marginTop: 2 }}>{sublabel}</div>}
         </div>
       </div>
     );
   }
+
 
   // ─── Main Admin Dashboard ─────────────────────────────────────────────────────
   export default function AdminDashboard({ token, adminName, onLogout }) {
@@ -1113,8 +1116,15 @@
       } finally { setPtmActioningId(null); }
     };
 
+    const goToRequestsFiltered = (nextFilterStatus) => {
+      setTab("requests");
+      setFilterStatus(nextFilterStatus || "all");
+      setSearchQ("");
+    };
 
     const filteredRequests = requests.filter(r => {
+
+
       const matchStatus = filterStatus === "all" || r.status === filterStatus;
       const q = searchQ.toLowerCase();
       const matchSearch = !q ||
@@ -1279,20 +1289,21 @@
 
           {/* Stats */}
       {/* Stats */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 28 }}>
-          <StatCard label="Total Clients"              value={stats.totalClients} sublabel="Distinct client accounts" icon="🏢" />
-          <StatCard label="Active Users"                value={stats.activeUsers} sublabel="Partners currently active" icon="👤" />
-          <StatCard label="Pending Approvals"           value={stats.userApprovalQueue} sublabel="Users + team members awaiting approval" icon="🕓" />
-          <StatCard label="New Requests"                value={stats.newRequestsThisWeek} sublabel="Submitted in the last 7 days" icon="🆕" />
-          <StatCard label="Awaiting Approval"           value={stats.awaitingApproval} sublabel="Submitted or under review" icon="⏳" />
-          <StatCard label="Invoices Awaiting Payment"   value={stats.invoicesAwaitingPayment} sublabel="Pending payment confirmation" icon="🧾" />
-          <StatCard label="Pending Scheduling"          value={stats.pendingScheduling} sublabel="Paid, not yet scheduled" icon="🗓️" />
-          <StatCard label="Scheduled"                   value={stats.scheduled} sublabel="Service date set" icon="📅" />
-          <StatCard label="In Progress"                 value={stats.inProgress} sublabel="Service underway" icon="🔧" />
-          <StatCard label="Completed This Month"        value={stats.completedThisMonth} sublabel="Finished this calendar month" icon="✅" />
-          <StatCard label="Total Completed"             value={stats.completed} sublabel="All-time completed" icon="✓" />
-          <StatCard label="Total Requests"              value={stats.total} sublabel="All requests in your inventory" icon="📋" />
-          <StatCard label="Revenue"                     value={`$${stats.revenue.toLocaleString()}`} sublabel="Across all completed requests" icon="$" />
+          {/* Stats */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginBottom: 28 }}>
+          <StatCard label="Total Clients"              value={stats.totalClients} sublabel="Distinct client accounts" icon="🏢" onClick={() => goToRequestsFiltered("all")} />
+          <StatCard label="Active Users"                value={stats.activeUsers} sublabel="Partners currently active" icon="👤" onClick={() => setTab("partners")} />
+          <StatCard label="Pending Approvals"           value={stats.userApprovalQueue} sublabel="Users + team members awaiting approval" icon="🕓" onClick={() => setTab("partnerTeamMembers")} />
+          <StatCard label="New Requests"                value={stats.newRequestsThisWeek} sublabel="Submitted in the last 7 days" icon="🆕" onClick={() => goToRequestsFiltered("all")} />
+          <StatCard label="Awaiting Approval"           value={stats.awaitingApproval} sublabel="Submitted or under review" icon="⏳" onClick={() => setTab("approvalQueue")} />
+          <StatCard label="Invoices Awaiting Payment"   value={stats.invoicesAwaitingPayment} sublabel="Pending payment confirmation" icon="🧾" onClick={() => setTab("paymentConfirmationQueue")} />
+          <StatCard label="Pending Scheduling"          value={stats.pendingScheduling} sublabel="Paid, not yet scheduled" icon="🗓️" onClick={() => goToRequestsFiltered("PENDING_SCHEDULING")} />
+          <StatCard label="Scheduled"                   value={stats.scheduled} sublabel="Service date set" icon="📅" onClick={() => goToRequestsFiltered("SCHEDULED")} />
+          <StatCard label="In Progress"                 value={stats.inProgress} sublabel="Service underway" icon="🔧" onClick={() => goToRequestsFiltered("IN_PROGRESS")} />
+          <StatCard label="Completed This Month"        value={stats.completedThisMonth} sublabel="Finished this calendar month" icon="✅" onClick={() => goToRequestsFiltered("COMPLETED")} />
+          <StatCard label="Total Completed"             value={stats.completed} sublabel="All-time completed" icon="✓" onClick={() => goToRequestsFiltered("COMPLETED")} />
+          <StatCard label="Total Requests"              value={stats.total} sublabel="All requests in your inventory" icon="📋" onClick={() => goToRequestsFiltered("all")} />
+          <StatCard label="Revenue"                     value={`$${stats.revenue.toLocaleString()}`} sublabel="Across all completed requests" icon="$" onClick={() => goToRequestsFiltered("all")} />
         </div>
 
       {/* Tabs */}

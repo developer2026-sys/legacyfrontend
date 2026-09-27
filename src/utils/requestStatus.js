@@ -19,7 +19,7 @@ export const REQUEST_STATUS_LABELS = {
   DRAFT: "Draft",
   SUBMITTED: "Submitted",
   UNDER_REVIEW: "Under Review",
-  NEEDS_INFORMATION: "Needs Information",
+    
   APPROVED: "Approved",
   REJECTED: "Rejected",
   INVOICE_PENDING: "Invoice Pending",
