@@ -170,7 +170,8 @@
   }
 
   // ─── Upload Documents Modal ───────────────────────────────────────────────────
-  function UploadDocumentsModal({ request, token, onClose }) {
+  function UploadDocumentsModal({ request, token, onClose, onUploaded }) {
+
     const { success: ok, error: err } = useToast();
     const [files, setFiles] = useState([]);
     const [uploading, setUploading] = useState(false);
@@ -199,6 +200,7 @@
         ok("Uploaded", `${files.length} document${files.length !== 1 ? "s" : ""} uploaded successfully.`);
         setUploaded(prev => [...prev, ...(data.files || [])]);
         setFiles([]);
+        await onUploaded?.();
       } catch (e) {
         err("Upload failed", e?.response?.data?.message || "Could not upload documents.");
       } finally {
@@ -579,11 +581,19 @@
             </div>
           ) : (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-              {documents.map((doc, i) => {
-                const rawPath = doc.storagePath || doc.storage_path || "";
-                const filename = rawPath.split(/[/\\]/).pop() || `File ${i + 1}`;
-                const fileUrl = `http://localhost:5000/files/${filename}`;
-                return (
+             {documents.map((doc, i) => {
+  const rawPath = doc.storagePath || doc.storage_path || doc.url || "";
+  const isRemote = /^https?:\/\//i.test(rawPath);
+  const lastSegment = rawPath.split(/[/\\]/).pop() || "";
+  const filename =
+    doc.originalName ||
+    doc.original_name ||
+    decodeURIComponent(lastSegment) ||
+    `File ${i + 1}`;
+  const fileUrl = isRemote
+    ? rawPath
+    : `${BASE_URL.replace(/\/api\/?$/, "")}/files/${lastSegment}`;
+  return (
                   <div key={i} style={{
                     display: "flex", alignItems: "center", gap: 12,
                     backgroundColor: "#F9FAFB", border: `1px solid ${border}`,
@@ -991,6 +1001,12 @@
       fetchPartnerTeamMembers,
       fetchMonumentRequests,
     ]);
+
+    useEffect(() => {
+      if (tab === "paymentConfirmationQueue") {
+        void fetchPaymentConfirmationQueue();
+      }
+    }, [tab, fetchPaymentConfirmationQueue]);
 
     const handleLogout = () => {
       localStorage.removeItem("adminToken");
@@ -1909,11 +1925,16 @@
             onConfirm={() => handleDeactivatePartner(deactivatePartner, deactivateReason.trim())}
           />
         )}
-        {uploadRequest && (
+               {uploadRequest && (
           <UploadDocumentsModal
             request={uploadRequest}
             token={token}
+            onUploaded={() => Promise.all([
+              fetchPaymentConfirmationQueue(),
+              fetchRequests(),
+            ])}
             onClose={() => {
+          
               setUploadRequest(null);
               if (selectedRequest && selectedRequest.id === uploadRequest.id) {
                 axios.get(`${BASE_URL}/admin/requests/${uploadRequest.id}`, { headers: { Authorization: `Bearer ${token}` } })

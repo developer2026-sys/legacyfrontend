@@ -2010,7 +2010,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     className="block text-sm font-medium mb-2"
     style={{ color: "#374151" }}
   >
-    Phone Number
+    {isFamilyAdvisor ? "Customer Phone" : "Phone Number"}
   </label>
   <input
     name="phoneNumber"
@@ -2030,7 +2030,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     className="block text-sm font-medium mb-2"
     style={{ color: "#374151" }}
   >
-    Email Address
+    {isFamilyAdvisor ? "Customer Email" : "Email Address"}
   </label>
   <input
     name="emailAddress"
@@ -2139,7 +2139,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                   >
                     Photos{" "}
                     <span className="text-xs font-normal" style={{ color: "#6B7280" }}>
-                      ({photosRequired ? "required" : "optional"} · up to 10 · jpg/png/webp · 10 MB each)
+                    ({photosRequired ? "required" : "optional"} · up to 10 · jpg/png/webp · 4 MB each)
                     </span>
                   </label>
 
