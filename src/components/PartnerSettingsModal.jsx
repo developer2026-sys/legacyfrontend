@@ -87,12 +87,12 @@ function PartnerSettingsModal({ partner, token, onClose }) {
     const { success: ok, error: err } = useToast();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
+    const [completed, setCompleted] = useState(0);
     const [form, setForm] = useState({
       annualGoal: 500,
       emailRemindersEnabled: true,
       emailSendTime: "07:00",
     });
-  
     useEffect(() => {
       const fetchSettings = async () => {
         try {
@@ -102,6 +102,7 @@ function PartnerSettingsModal({ partner, token, onClose }) {
             { headers: { Authorization: `Bearer ${token}` } }
           );
           const s = data.settings;
+          setCompleted(Number(data.completedMemorials ?? 0)); // adjust to your API field
           setForm({
             annualGoal: s.annualGoal,
             emailRemindersEnabled: s.emailRemindersEnabled,
@@ -144,27 +145,48 @@ function PartnerSettingsModal({ partner, token, onClose }) {
           <div style={{ padding: "20px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading settings…</div>
         ) : (
           <>
-            <Field label="Annual Memorial Goal">
-              <select
-                style={selectStyle}
-                value={[300, 500].includes(Number(form.annualGoal)) ? form.annualGoal : "custom"}
-                onChange={(e) => {
-                  if (e.target.value === "custom") return;
-                  setForm((p) => ({ ...p, annualGoal: Number(e.target.value) }));
-                }}
-              >
-                <option value={300}>300</option>
-                <option value={500}>500</option>
-                <option value="custom">Custom</option>
-              </select>
-              <input
-                type="number"
-                min="1"
-                style={{ ...inputStyle, marginTop: 8 }}
-                value={form.annualGoal}
-                onChange={(e) => setForm((p) => ({ ...p, annualGoal: e.target.value }))}
-              />
-            </Field>
+           <Field label="Annual Memorial Goal">
+  {/* Progress summary */}
+  <div style={{ marginBottom: 10 }}>
+    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 6 }}>
+      <span style={{ color: textPrimary, fontSize: 22, fontWeight: 700 }}>
+        {completed}
+        <span style={{ color: textMuted, fontSize: 13, fontWeight: 500 }}> completed</span>
+      </span>
+      <span style={{ color: textMuted, fontSize: 12.5 }}>
+        Goal: {Number(form.annualGoal) || 0}
+      </span>
+    </div>
+    <div style={{ height: 6, borderRadius: 999, backgroundColor: border, overflow: "hidden" }}>
+      <div style={{
+        height: "100%",
+        width: `${Math.min(100, (completed / (Number(form.annualGoal) || 1)) * 100)}%`,
+        backgroundColor: primary,
+        transition: "width .3s",
+      }} />
+    </div>
+  </div>
+
+  {/* Single goal input + quick presets */}
+  <input
+    type="number"
+    min="1"
+    style={inputStyle}
+    value={form.annualGoal}
+    onChange={(e) => setForm((p) => ({ ...p, annualGoal: e.target.value }))}
+  />
+  <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+    {[300, 500].map((n) => (
+      <GhostBtn
+        key={n}
+        onClick={() => setForm((p) => ({ ...p, annualGoal: n }))}
+        style={{ padding: "4px 12px" }}
+      >
+        {n}
+      </GhostBtn>
+    ))}
+  </div>
+</Field>
   
             <Field label="Daily Email Reminder Time">
               <input

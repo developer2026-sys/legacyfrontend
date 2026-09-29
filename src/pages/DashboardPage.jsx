@@ -111,7 +111,10 @@ function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClo
             <h2 className="text-lg font-semibold" style={{ color: "#1A1A2E" }}>
               {request.requestNumber || `#${request.id}`} · {request.customerName}
             </h2>
-            <p className="text-sm mt-1" style={{ color: "#6B7280" }}>{request.memorialLocation}</p>
+            <p className="text-sm mt-1" style={{ color: "#6B7280" }}>
+  {request.memorialLocation}
+  {request.term ? ` · ${request.term}` : ""}
+</p>
           </div>
           <button type="button" onClick={onClose} aria-label="Close details" className="text-sm px-3 py-1.5 rounded-lg border" style={{ borderColor: "#E5EAF0", color: "#374151" }}>Close</button>
         </div>
@@ -145,6 +148,7 @@ function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClo
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DetailRow label="Property" value={request.memorialLocation} />
             <DetailRow label="Package" value={request.packageNameSnapshot || request.package?.name} />
+            <DetailRow label="Term" value={request.term} />
             {priceVisibility === "customer_retail" && request.customerRetailPrice != null && (
               <DetailRow label="Customer Retail Price" value={`$${Number(request.customerRetailPrice).toFixed(2)}`} />
             )}
@@ -1240,6 +1244,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     payload.append("space", String(formValues.get("spaceNumber") || ""));
     payload.append("vaseInfo", String(formValues.get("vaseInformation") || ""));
     payload.append("notes", String(formValues.get("familyNotes") || ""));
+    payload.append("term", String(formValues.get("term") || ""));
     selectedPhotos.forEach((file) => payload.append("photos", file));
     return payload;
   };
@@ -2111,7 +2116,25 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                   )}
                 </div>
 
-              
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+                    Term
+                  </label>
+                  <select
+                    name="term"
+                    required
+                    defaultValue={editingDraft?.term || ""}
+                    className="w-full h-12 px-4 rounded-lg text-sm transition"
+                    style={inputStyle}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                  >
+                    <option value="">Select a term…</option>
+                    <option value="1 Year">1 Year</option>
+                    <option value="2 Year">2 Year</option>
+                    <option value="3 Year">3 Year</option>
+                  </select>
+                </div>
 
                 <div>
   <label

@@ -308,7 +308,26 @@
     );
   }
 
+  function ConfirmDeleteRequestModal({ request, onConfirm, onClose, loading }) {
+    return (
+      <Modal title="Delete Request" subtitle="This action cannot be undone." onClose={onClose}>
+        <p style={{ color: textSecondary, fontSize: 13.5, lineHeight: 1.6, marginBottom: 24 }}>
+          You are about to permanently delete request{" "}
+          <strong style={{ color: textPrimary }}>{request.requestNumber || `#${request.id}`}</strong>
+          {request.customerName ? ` for ${request.customerName}` : ""}. Its documents and history will be removed too.
+        </p>
+        <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <GhostBtn onClick={onClose}>Cancel</GhostBtn>
+          <ActionBtn onClick={onConfirm} disabled={loading} color="#DC2626" hoverColor="#b91c1c" textColor="#fff">
+            {loading ? "Deleting…" : "Delete Request"}
+          </ActionBtn>
+        </div>
+      </Modal>
+    );
+  }
+
   function DeactivatePartnerModal({ partner, reason, setReason, onConfirm, onClose, loading }) {
+
     return (
       <Modal title="Deactivate Partner" subtitle="Their session will be invalidated immediately." onClose={onClose}>
         <p style={{ color: textSecondary, fontSize: 13.5, lineHeight: 1.6, marginBottom: 16 }}>
@@ -554,7 +573,9 @@
         <DetailRow label="Space Number" value={request.space} />
         <DetailRow label="Vase Information" value={request.vaseInfo} />
         <DetailRow label="Package" value={request.packageNameSnapshot || request.package?.name || request.packageType} />
-        <DetailRow label="Client / Property ID" value={`${request.clientAccountId ?? "—"} / ${request.locationId ?? "—"}`} />
+<DetailRow label="Term" value={request.term} />
+<DetailRow label="Client / Property ID" value={`${request.clientAccountId ?? "—"} / ${request.locationId ?? "—"}`} />
+
         <DetailRow label="Package ID" value={request.packageId ?? "—"} />
         <DetailRow label="Restoration Price" value={`$${Number(request.restorationPrice ?? request.packagePrice ?? 0).toFixed(2)}`} />
         <DetailRow label="Revenue Share" value={`$${Number(request.revenueShare || 0).toFixed(2)}`} />
@@ -861,6 +882,8 @@
     const [queueReasonAction, setQueueReasonAction] = useState(null);
     const [queueReason, setQueueReason] = useState("");
     const [queueActioningId, setQueueActioningId] = useState(null);
+    const [deleteRequest, setDeleteRequest] = useState(null);
+    const [deletingRequestId, setDeletingRequestId] = useState(null);
     const [partners, setPartners] = useState([]);
     const [partLoading, setPartLoading] = useState(true);
     const [editPartner, setEditPartner] = useState(null);
@@ -1120,6 +1143,26 @@
         err("Update failed", e?.response?.data?.message || "Could not update this request.");
       } finally {
         setQueueActioningId(null);
+      }
+    };
+
+    const handleDeleteRequest = async () => {
+      if (!deleteRequest) return;
+      const label = deleteRequest.requestNumber || `#${deleteRequest.id}`;
+      try {
+        setDeletingRequestId(deleteRequest.id);
+        await axios.delete(`${BASE_URL}/admin/requests/${deleteRequest.id}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setRequests(prev => prev.filter(r => r.id !== deleteRequest.id));
+        setSelectedRequest(prev => (prev?.id === deleteRequest.id ? null : prev));
+        setDeleteRequest(null);
+        ok("Request deleted", `${label} has been removed.`);
+        fetchPaymentConfirmationQueue();
+      } catch (e) {
+        err("Delete failed", e?.response?.data?.message || "Could not delete this request.");
+      } finally {
+        setDeletingRequestId(null);
       }
     };
 
@@ -1451,6 +1494,7 @@
                               <ActionBtn onClick={() => handleQueueAction(request, "approve")} disabled={queueActioningId === request.id} color="#059669" hoverColor="#047857">{queueActioningId === request.id ? "Saving…" : "Approve"}</ActionBtn>
                               <ActionBtn onClick={() => { setQueueReasonAction({ request, action: "deny" }); setQueueReason(""); }} disabled={queueActioningId === request.id} color="#DC2626" hoverColor="#B91C1C">Deny</ActionBtn>
                               <ActionBtn onClick={() => { setQueueReasonAction({ request, action: "request-information" }); setQueueReason(""); }} disabled={queueActioningId === request.id} color="#D97706" hoverColor="#B45309">Request More Information</ActionBtn>
+                              <GhostBtn danger onClick={() => setDeleteRequest(request)}>Delete</GhostBtn>
                             </div>
                           </td>
                         </tr>
@@ -1619,10 +1663,11 @@
                           <td style={{ padding: "13px 16px", color: textSecondary, fontSize: 12 }}>{r.customerEmail}</td>
                           <td style={{ padding: "13px 16px", color: textSecondary, maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.memorialLocation}</td>
                           <td style={{ padding: "13px 16px", color: textPrimary, whiteSpace: "nowrap" }}>
-                            {r.packageNameSnapshot || r.package?.name || r.packageType || "—"}
-                            {" · Invoice "}
-                            ${Number(r.invoiceAmount ?? r.packagePrice ?? 0).toFixed(2)}
-                          </td>
+  {r.packageNameSnapshot || r.package?.name || r.packageType || "—"}
+  {r.term ? ` · ${r.term}` : ""}
+  {" · Invoice "}
+  ${Number(r.invoiceAmount ?? r.packagePrice ?? 0).toFixed(2)}
+</td>
                           <td style={{ padding: "13px 16px", color: textMuted, fontSize: 12 }}>
                             {r.partner ? r.partner.username : (r.partnerId ? `#${r.partnerId}` : "—")}
                           </td>
@@ -1911,7 +1956,16 @@
             </div>
           </Modal>
         )}
+               {deleteRequest && (
+          <ConfirmDeleteRequestModal
+            request={deleteRequest}
+            loading={deletingRequestId === deleteRequest.id}
+            onClose={() => setDeleteRequest(null)}
+            onConfirm={handleDeleteRequest}
+          />
+        )}
         {selectedRequest && <RequestDetailModal request={selectedRequest} token={token} onClose={() => setSelectedRequest(null)} onStatusChange={handleStatusChange} />}
+
         {settingsPartner && <PartnerSettingsModal partner={settingsPartner} token={token} onClose={() => setSettingsPartner(null)} />}
         {editPartner && <EditPartnerModal partner={editPartner} token={token} onClose={() => setEditPartner(null)} onSaved={fetchPartners} />}
         {deletePartner && <ConfirmDeleteModal partner={deletePartner} loading={!!deletingId} onClose={() => setDeletePartner(null)} onConfirm={handleDeletePartner} />}
