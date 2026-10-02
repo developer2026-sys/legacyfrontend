@@ -221,6 +221,18 @@ export default function AdminLoginPage({ onLogin }) {
               Create one
             </Link>
           </p>
+          <p className="mt-6 text-center text-sm" style={{ color: "#6B7280" }}>
+           
+            <Link
+              to="/admin/reset"
+              className="font-medium transition"
+              style={{ color: "#1669A9" }}
+              onMouseEnter={(e) => (e.currentTarget.style.color = "#1E90CF")}
+              onMouseLeave={(e) => (e.currentTarget.style.color = "#1669A9")}
+            >
+              Reset your password
+            </Link>
+          </p>
         </div>
 
         <p className="mt-6 text-center text-xs" style={{ color: "#9CA3AF" }}>
