@@ -44,10 +44,11 @@ export default function AdminResetPasswordPage() {
 
   const [form, setForm] = useState({
     email: "",
-    currentPassword: "",
     newPassword: "",
     confirmPassword: "",
   });
+
+
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -67,10 +68,12 @@ export default function AdminResetPasswordPage() {
     e.preventDefault();
     setError("");
 
-    if (!form.email || !form.currentPassword || !form.newPassword || !form.confirmPassword) {
+    if (!form.email || !form.newPassword || !form.confirmPassword) {
       setError("All fields are required.");
       return;
     }
+
+
     if (!/^\S+@\S+\.\S+$/.test(form.email)) {
       setError("Please enter a valid email address.");
       return;
@@ -83,18 +86,15 @@ export default function AdminResetPasswordPage() {
       setError("Passwords do not match.");
       return;
     }
-    if (form.newPassword === form.currentPassword) {
-      setError("New password must be different from the current password.");
-      return;
-    }
+   
 
     try {
       setSubmitting(true);
       await axios.post(`${BASE_URL}/admin/reset-password`, {
         email: form.email,
-        currentPassword: form.currentPassword,
         newPassword: form.newPassword,
       });
+
       toastSuccess("Password updated", "Your admin password has been changed.");
       setDone(true);
     } catch (axiosErr) {
@@ -216,21 +216,7 @@ export default function AdminResetPasswordPage() {
                   />
                 </Field>
 
-                <Field label="Current Password" htmlFor="current-password">
-                  <input
-                    id="current-password"
-                    type="password"
-                    autoComplete="current-password"
-                    value={form.currentPassword}
-                    onChange={set("currentPassword")}
-                    placeholder="Enter current password"
-                    className="w-full h-12 px-4 rounded-lg text-sm transition"
-                    style={inputStyles}
-                    onFocus={focusStyle}
-                    onBlur={blurStyle}
-                  />
-                </Field>
-
+              
                 <Field label="New Password" htmlFor="reset-new-password">
                   <input
                     id="reset-new-password"

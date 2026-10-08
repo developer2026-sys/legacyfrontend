@@ -57,8 +57,8 @@ export function ToastProvider({ children, maxToasts = 4, duration = 4000 }) {
 function ToastContainer({ toasts, onDismiss, duration }) {
   return (
     <div
-      className="fixed bottom-5 right-5 z-50 flex flex-col-reverse gap-2.5"
-      style={{ width: 340 }}
+      className="fixed bottom-5 right-5 flex flex-col-reverse gap-2.5"
+      style={{ width: 340, zIndex: 9999 }}
       role="region"
       aria-label="Notifications"
       aria-live="polite"

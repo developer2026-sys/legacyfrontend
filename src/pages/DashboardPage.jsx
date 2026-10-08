@@ -63,12 +63,15 @@ function StatCard({ label, sublabel, value, icon }) {
 }
 
 function latestReturnDecision(request) {
+  // Only show a return/rejection note while the request is still in that state.
+  // Once it's resubmitted (SUBMITTED, UNDER_REVIEW, APPROVED, ...), the old note is history.
+  if (!["NEEDS_INFORMATION", "REJECTED"].includes(request.status)) return undefined;
+
   return [...(request.statusHistory || [])]
     .filter((event) => ["NEEDS_INFORMATION", "REJECTED"].includes(event.toStatus))
     .sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
     .at(-1);
 }
-
 function paymentStatusLabel(request) {
   if (request.invoicePaymentStatus === "PAID") {
     const paidDate = request.invoicePaidDate
@@ -91,6 +94,35 @@ function DetailRow({ label, value }) {
     <div>
       <div className="text-xs font-medium" style={{ color: "#6B7280" }}>{label}</div>
       <div className="text-sm mt-0.5" style={{ color: "#1A1A2E" }}>{value || "—"}</div>
+    </div>
+  );
+}
+
+function toItemList(items) {
+  if (Array.isArray(items)) return items;
+  if (typeof items === "string") {
+    try {
+      const parsed = JSON.parse(items);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
+function PackageOffer({ service, items }) {
+  const list = toItemList(items);
+  if (!service && list.length === 0) return null;
+  return (
+    <div className="mt-3 rounded-lg p-4" style={{ backgroundColor: "#F0F7FF", border: "1px solid #BFDBFE" }}>
+      <div className="text-xs font-medium mb-1" style={{ color: "#6B7280" }}>What this package includes</div>
+      {service && <div className="text-sm font-semibold" style={{ color: "#1A1A2E" }}>{service}</div>}
+      {list.length > 0 && (
+        <ul className="mt-2 list-disc pl-5 space-y-1 text-sm" style={{ color: "#374151" }}>
+          {list.map((item, i) => <li key={i}>{item}</li>)}
+        </ul>
+      )}
     </div>
   );
 }
@@ -149,6 +181,9 @@ function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClo
             <DetailRow label="Property" value={request.memorialLocation} />
             <DetailRow label="Package" value={request.packageNameSnapshot || request.package?.name} />
             <DetailRow label="Term" value={request.term} />
+            <div className="sm:col-span-2">
+              <PackageOffer service={request.serviceSnapshot} items={request.itemsSnapshot} />
+            </div>
             {priceVisibility === "customer_retail" && request.customerRetailPrice != null && (
               <DetailRow label="Customer Retail Price" value={`$${Number(request.customerRetailPrice).toFixed(2)}`} />
             )}
@@ -1200,6 +1235,9 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
   const propertyPricing = availablePricing.filter(
     (item) => String(item.locationId) === selectedLocationId
   );
+  const selectedPricingRow = availablePricing.find(
+    (item) => String(item.id) === selectedPricingId
+  );
 
   useEffect(() => {
     void fetchRequests();
@@ -2109,6 +2147,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                       </option>
                     ))}
                   </select>
+                  <PackageOffer service={selectedPricingRow?.service} items={selectedPricingRow?.items} />
                   {availablePricing.length === 0 && (
                     <p className="mt-2 text-xs" style={{ color: "#B45309" }}>
                       No active prices are set for your properties yet. Ask your administrator to configure pricing.
@@ -2371,8 +2410,10 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
             Selected Package
           </div>
           <div className="text-lg font-semibold" style={{ color: "#1A1A2E" }}>
-            {submittedPkg.packageNameSnapshot || submittedPkg.package?.name || "Selected package"}
+          {submittedPkg.packageNameSnapshot || submittedPkg.package?.name || "Selected package"}
           </div>
+          <PackageOffer service={submittedPkg.serviceSnapshot} items={submittedPkg.itemsSnapshot} />
+          
           {priceVisibility === "customer_retail" && submittedPkg.customerRetailPrice != null && (
             <div className="text-2xl font-bold mt-1" style={{ color: "#1669A9" }}>
               ${Number(submittedPkg.customerRetailPrice).toFixed(2)}

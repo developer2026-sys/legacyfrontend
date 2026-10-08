@@ -62,6 +62,31 @@
   }
 
 
+  const PTM_TYPE_STYLES = {
+    activate:   { label: "New user",     bg: "rgba(5,150,105,0.08)",  color: "#059669", border: "rgba(5,150,105,0.3)" },
+    deactivate: { label: "Deactivation", bg: "rgba(217,119,6,0.1)",   color: "#B45309", border: "rgba(217,119,6,0.4)" },
+    remove:     { label: "Removal",      bg: "rgba(220,38,38,0.08)",  color: "#DC2626", border: "rgba(220,38,38,0.3)" },
+  };
+  
+  const getPtmType = (m) => {
+    const t = m.request_type ?? m.requestType;
+    return t === "deactivate" || t === "remove" ? t : "activate";
+  };
+  
+  function PtmTypeBadge({ type }) {
+    const s = PTM_TYPE_STYLES[type] || PTM_TYPE_STYLES.activate;
+    return (
+      <span style={{
+        display: "inline-flex", alignItems: "center", borderRadius: 6,
+        border: `1px solid ${s.border}`, backgroundColor: s.bg, color: s.color,
+        padding: "3px 10px", fontSize: 11, fontWeight: 700, whiteSpace: "nowrap",
+        letterSpacing: "0.04em", textTransform: "uppercase",
+      }}>
+        {s.label}
+      </span>
+    );
+  }
+  
   function StatusBadge({ status }) {
     const s = STATUS_STYLES[status] || { bg: "rgba(0,0,0,0.04)", color: textMuted, border: border, label: getRequestStatusLabel(status) };
     return (
@@ -167,6 +192,24 @@
           cursor: "pointer", transition: "all .2s", ...style,
         }}>{children}</button>
     );
+  }
+
+
+  function downloadCsv(filename, headers, rows) {
+    const escapeCsv = (value) => {
+      const str = String(value ?? "");
+      return /[",\n]/.test(str) ? `"${str.replace(/"/g, '""')}"` : str;
+    };
+    const csv = [headers, ...rows].map(row => row.map(escapeCsv).join(",")).join("\n");
+    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 
   // ─── Upload Documents Modal ───────────────────────────────────────────────────
@@ -897,6 +940,9 @@
     const [partnerTeamMembers, setPartnerTeamMembers] = useState([]);
     const [ptmLoading, setPtmLoading] = useState(true);
     const [ptmActioningId, setPtmActioningId] = useState(null);
+    const ptmInFlight = React.useRef(new Set());
+    const [ptmTypeFilter, setPtmTypeFilter] = useState("all");
+
     const [monumentRequests, setMonumentRequests] = useState([]);
     const [monumentLoading, setMonumentLoading] = useState(true);
 
@@ -1029,7 +1075,12 @@
       if (tab === "paymentConfirmationQueue") {
         void fetchPaymentConfirmationQueue();
       }
-    }, [tab, fetchPaymentConfirmationQueue]);
+      if (tab === "partnerTeamMembers") {
+        void fetchPartnerTeamMembers();
+      }
+    }, [tab, fetchPaymentConfirmationQueue, fetchPartnerTeamMembers]);
+
+    
 
     const handleLogout = () => {
       localStorage.removeItem("adminToken");
@@ -1230,16 +1281,46 @@
     };
 
     const handlePtmDecision = async (id, decision) => {
+      if (ptmInFlight.current.has(id)) return;
+      ptmInFlight.current.add(id);
+      const row = partnerTeamMembers.find(m => m.id === id);
+      const type = row ? getPtmType(row) : "activate";
+      const noun = PTM_TYPE_STYLES[type].label.toLowerCase();
       try {
         setPtmActioningId(id);
         await axios.patch(`${BASE_URL}/admin/partner-team-members/${id}/${decision}`, {}, { headers: { Authorization: `Bearer ${token}` } });
-        ok(decision === "approve" ? "Approved" : "Denied", `family advisor request has been ${decision === "approve" ? "approved" : "denied"}.`);
+        ok(decision === "approve" ? "Approved" : "Denied", `${noun} request has been ${decision === "approve" ? "approved" : "denied"}.`);
         setPartnerTeamMembers(prev => prev.map(m => m.id === id ? { ...m, status: decision === "approve" ? "approved" : "denied" } : m));
+        if (decision === "approve" && type !== "activate") void fetchPartners();
       } catch (e) {
+        if (e?.response?.status === 409) {
+          await fetchPartnerTeamMembers(); 
+        }
         err("Failed", e?.response?.data?.message || `Could not ${decision} this request.`);
-      } finally { setPtmActioningId(null); }
+      } finally {
+        ptmInFlight.current.delete(id);
+        setPtmActioningId(null);
+      }
     };
 
+
+
+    const ptmCounts = {
+      all:        { total: 0, pending: 0 },
+      activate:   { total: 0, pending: 0 },
+      deactivate: { total: 0, pending: 0 },
+      remove:     { total: 0, pending: 0 },
+    };
+    partnerTeamMembers.forEach(m => {
+      ["all", getPtmType(m)].forEach(k => {
+        ptmCounts[k].total += 1;
+        if (m.status === "pending") ptmCounts[k].pending += 1;
+      });
+    });
+    const filteredPtm = ptmTypeFilter === "all"
+      ? partnerTeamMembers
+      : partnerTeamMembers.filter(m => getPtmType(m) === ptmTypeFilter);
+    
     const goToRequestsFiltered = (nextFilterStatus) => {
       setTab("requests");
       setFilterStatus(nextFilterStatus || "all");
@@ -1353,6 +1434,94 @@
       userApprovalQueue: partners.filter(p => p.status === "pending_approval").length + partnerTeamMembers.filter(m => m.status === "pending").length,
     };
 
+    const todayStr = () => new Date().toISOString().slice(0, 10);
+const fmtDate = (d) => (d ? new Date(d).toLocaleDateString("en-US") : "");
+
+const exportApprovalQueueCsv = () => {
+  downloadCsv(
+    `approval-queue-${todayStr()}.csv`,
+    ["Request", "Client", "Property", "Advisor", "Customer", "Submitted", "Status"],
+    filteredQueueRequests.map(r => [
+      r.requestNumber || `#${r.id}`,
+      r.clientAccount?.name || (r.clientAccountId ? `Client #${r.clientAccountId}` : ""),
+      r.location?.name || r.memorialLocation || "",
+      r.partner?.username || r.partner?.email || "",
+      r.customerName || "",
+      fmtDate(r.submittedAt || r.createdAt),
+      getRequestStatusLabel(r.status),
+    ])
+  );
+};
+
+const exportPaymentQueueCsv = () => {
+  downloadCsv(
+    `payment-confirmation-queue-${todayStr()}.csv`,
+    ["Invoice", "Request", "Client", "Customer", "Amount", "Request Status"],
+    paymentInvoices.map(inv => {
+      const r = inv.memorialRequest || {};
+      return [
+        `INV-${inv.id}`,
+        r.requestNumber || `#${r.id || inv.requestId}`,
+        r.clientAccount?.name || (r.clientAccountId ? `Client #${r.clientAccountId}` : ""),
+        r.customerName || "",
+        Number(inv.amount ?? r.invoiceAmount ?? r.packagePrice ?? 0).toFixed(2),
+        getRequestStatusLabel(r.status),
+      ];
+    })
+  );
+};
+
+const exportPartnersCsv = () => {
+  downloadCsv(
+    `partners-${todayStr()}.csv`,
+    ["ID", "Username", "Email", "Role", "Status", "Client", "Email Reminders", "Requests", "Created"],
+    partners.map(p => [
+      p.id,
+      p.username || "",
+      p.email || "",
+      p.accountRole || p.role || "",
+      (p.status || "active").replace("_", " "),
+      p.clientAccountId ? `Client #${p.clientAccountId}` : "",
+      p.partnershipSettings?.emailRemindersEnabled !== false ? "On" : "Off",
+      requests.filter(r => r.partnerId === p.id).length,
+      fmtDate(p.createdAt),
+    ])
+  );
+};
+
+const exportPartnerTeamMembersCsv = () => {
+  downloadCsv(
+    `partner-family-advisors-${todayStr()}.csv`,
+    ["ID", "Email", "Request", "Reason", "Invited By", "Status", "Created", "Approved At"],
+    partnerTeamMembers.map(m => {
+      const type = m.request_type ?? m.requestType ?? "activate";
+      const typeLabel = type === "deactivate" ? "Deactivate user" : type === "remove" ? "Remove user" : "Activate new user";
+      return [
+        m.id,
+        m.partner?.email || "",
+        typeLabel,
+        m.reason || "",
+        m.invitedByPartner?.email || "",
+        PTM_STATUS_STYLES[m.status]?.label || m.status,
+        fmtDate(m.createdAt || m.created_at),
+        fmtDate(m.approved_at || m.approvedAt),
+      ];
+    })
+  );
+};
+
+// Monument Setting: exports every simple (non-nested) field on each request
+const exportMonumentCsv = () => {
+  const flat = monumentRequests.map(r =>
+    Object.fromEntries(Object.entries(r).filter(([, v]) => v === null || typeof v !== "object"))
+  );
+  const headers = [...new Set(flat.flatMap(r => Object.keys(r)))];
+  downloadCsv(
+    `monument-setting-${todayStr()}.csv`,
+    headers,
+    flat.map(r => headers.map(h => r[h]))
+  );
+};
     // Shared inline action button style factory
     const inlineBtn = (color, hoverBg) => ({
       base: { background: "none", border: `1px solid ${border}`, color, borderRadius: 6, padding: "5px 12px", fontSize: 11.5, cursor: "pointer", transition: "all .15s" },
@@ -1445,10 +1614,13 @@
 
           {tab === "approvalQueue" && (
             <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderTop: "3px solid #059669" }}>
-              <div style={{ padding: "18px 20px", borderBottom: `1px solid ${border}` }}>
-                <div style={{ color: textPrimary, fontSize: 16, fontWeight: 700 }}>Super Admin Approval Queue</div>
-                <div style={{ color: textMuted, fontSize: 12.5, marginTop: 4 }}>Submitted requests across all client accounts, including items already under review.</div>
-              </div>
+        <div style={{ padding: "18px 20px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+  <div>
+    <div style={{ color: textPrimary, fontSize: 16, fontWeight: 700 }}>Super Admin Payment Confirmation Queue</div>
+    <div style={{ color: textMuted, fontSize: 12.5, marginTop: 4 }}>Manually confirm received payments before requests move to scheduling.</div>
+  </div>
+ 
+</div>
               <div style={{ padding: "14px 18px", borderBottom: `1px solid ${border}`, display: "flex", gap: 10, flexWrap: "wrap", alignItems: "center", backgroundColor: "#FAFBFC" }}>
                 <select aria-label="Filter by client" value={queueFilters.clientId} onChange={e => setQueueFilters(prev => ({ ...prev, clientId: e.target.value }))} style={{ ...selectStyle, width: 190, height: 36, fontSize: 12.5 }}>
                   <option value="all">All Clients</option>
@@ -1465,6 +1637,9 @@
                 <label style={{ color: textMuted, fontSize: 11.5 }}>From <input aria-label="From date" type="date" value={queueFilters.fromDate} onChange={e => setQueueFilters(prev => ({ ...prev, fromDate: e.target.value }))} style={{ ...inputStyle, width: 145, height: 36, fontSize: 12 }} /></label>
                 <label style={{ color: textMuted, fontSize: 11.5 }}>To <input aria-label="To date" type="date" value={queueFilters.toDate} onChange={e => setQueueFilters(prev => ({ ...prev, toDate: e.target.value }))} style={{ ...inputStyle, width: 145, height: 36, fontSize: 12 }} /></label>
                 <span style={{ color: textMuted, fontSize: 12, marginLeft: "auto" }}>{filteredQueueRequests.length} request{filteredQueueRequests.length !== 1 ? "s" : ""}</span>
+<ActionBtn onClick={exportApprovalQueueCsv} disabled={filteredQueueRequests.length === 0} color={primary} hoverColor={primaryHover}>
+  Export CSV
+</ActionBtn>
               </div>
               {reqLoading ? (
                 <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading approval queue…</div>
@@ -1508,10 +1683,15 @@
 
           {tab === "paymentConfirmationQueue" && (
             <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderTop: "3px solid #059669" }}>
-              <div style={{ padding: "18px 20px", borderBottom: `1px solid ${border}` }}>
-                <div style={{ color: textPrimary, fontSize: 16, fontWeight: 700 }}>Super Admin Payment Confirmation Queue</div>
-                <div style={{ color: textMuted, fontSize: 12.5, marginTop: 4 }}>Manually confirm received payments before requests move to scheduling.</div>
-              </div>
+          <div style={{ padding: "18px 20px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+  <div>
+    <div style={{ color: textPrimary, fontSize: 16, fontWeight: 700 }}>Super Admin Payment Confirmation Queue</div>
+    <div style={{ color: textMuted, fontSize: 12.5, marginTop: 4 }}>Manually confirm received payments before requests move to scheduling.</div>
+  </div>
+  <ActionBtn onClick={exportPaymentQueueCsv} disabled={paymentInvoices.length === 0} color={primary} hoverColor={primaryHover}>
+    Export CSV
+  </ActionBtn>
+</div>
               {paymentQueueLoading ? (
                 <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading payment confirmation queue…</div>
               ) : paymentInvoices.length === 0 ? (
@@ -1721,7 +1901,12 @@
             <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderTop: `3px solid #0284C7` }}>
               <div style={{ padding: "14px 18px 13px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FAFBFC" }}>
                 <div style={{ color: textPrimary, fontSize: 15, fontWeight: 700 }}>All Partners</div>
-                <span style={{ color: textMuted, fontSize: 12 }}>{partners.length} registered</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+  <span style={{ color: textMuted, fontSize: 12 }}>{partners.length} registered</span>
+  <ActionBtn onClick={exportPartnersCsv} disabled={partners.length === 0} color={primary} hoverColor={primaryHover}>
+    Export CSV
+  </ActionBtn>
+</div>
               </div>
 
               {partLoading ? (
@@ -1836,13 +2021,54 @@
             <div style={{ backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12, overflow: "hidden", boxShadow: "0 1px 4px rgba(0,0,0,0.05)", borderTop: `3px solid ${primary}` }}>
               <div style={{ padding: "14px 18px 13px", borderBottom: `1px solid ${border}`, display: "flex", alignItems: "center", justifyContent: "space-between", backgroundColor: "#FAFBFC" }}>
                 <div style={{ color: textPrimary, fontSize: 15, fontWeight: 700 }}>Partner family advisors</div>
-                <span style={{ color: textMuted, fontSize: 12 }}>{partnerTeamMembers.length} total</span>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+  <span style={{ color: textMuted, fontSize: 12 }}>{partnerTeamMembers.length} total</span>
+  <ActionBtn onClick={exportPartnerTeamMembersCsv} disabled={partnerTeamMembers.length === 0} color={primary} hoverColor={primaryHover}>
+    Export CSV
+  </ActionBtn>
+</div>
+              </div>
+
+              <div style={{ padding: "12px 18px", borderBottom: `1px solid ${border}`, display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+                {[
+                  ["all", "All"],
+                  ["activate", "New user"],
+                  ["deactivate", "Deactivation"],
+                  ["remove", "Removal"],
+                ].map(([key, label]) => {
+                  const active = ptmTypeFilter === key;
+                  const pending = ptmCounts[key].pending;
+                  return (
+                    <button
+                      key={key}
+                      onClick={() => setPtmTypeFilter(key)}
+                      style={{
+                        display: "inline-flex", alignItems: "center", gap: 8,
+                        padding: "6px 14px", borderRadius: 8, fontSize: 12.5, fontWeight: 500, cursor: "pointer",
+                        border: `1px solid ${active ? borderPrimary : border}`,
+                        backgroundColor: active ? "rgba(22,105,169,0.08)" : surface,
+                        color: active ? primary : textMuted, transition: "all .2s",
+                      }}
+                    >
+                      {label} ({ptmCounts[key].total})
+                      {pending > 0 && (
+                        <span style={{
+                          fontSize: 10.5, fontWeight: 700, padding: "1px 7px", borderRadius: 999,
+                          backgroundColor: "rgba(234,179,8,0.15)", color: "#92400E",
+                          border: "1px solid rgba(234,179,8,0.4)",
+                        }}>{pending} pending</span>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
 
               {ptmLoading ? (
                 <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading partner family advisors…</div>
               ) : partnerTeamMembers.length === 0 ? (
                 <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>No partner family advisors requests yet.</div>
+              ) : filteredPtm.length === 0 ? (
+                <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>No requests of this type.</div>
               ) : (
                 <div style={{ overflowX: "auto" }}>
                   <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
@@ -1853,18 +2079,17 @@
                       </tr>
                     </thead>
                     <tbody>
-                      {partnerTeamMembers.map((m, i) => (
-                        <tr key={m.id} style={{ borderTop: `1px solid ${border}`, backgroundColor: i % 2 === 0 ? surface : "#FAFBFC" }}>
+                    {filteredPtm.map((m, i) => (
+                        <tr key={m.id} style={{
+                          borderTop: `1px solid ${border}`,
+                          borderLeft: `3px solid ${PTM_TYPE_STYLES[getPtmType(m)].color}`,
+                          backgroundColor: i % 2 === 0 ? surface : "#FAFBFC",
+                        }}>
                           <td style={{ padding: "13px 16px", color: textMuted, fontSize: 12 }}>#{m.id}</td>
                           <td style={{ padding: "13px 16px", color: textPrimary, fontWeight: 600 }}>{m.partner?.email || "—"}</td>
-                          <td style={{ padding: "13px 16px", color: textSecondary, whiteSpace: "nowrap" }}>
-    {(() => {
-      const type = m.request_type ?? m.requestType ?? "activate";
-      if (type === "deactivate") return "Deactivate user";
-      if (type === "remove") return "Remove user";
-      return "Activate new user";
-    })()}
-  </td>
+                          <td style={{ padding: "13px 16px", whiteSpace: "nowrap" }}>
+                            <PtmTypeBadge type={getPtmType(m)} />
+                          </td>
                           <td style={{ padding: "13px 16px", color: textSecondary, maxWidth: 260 }}>
                             {m.reason || <span style={{ color: textMuted }}>—</span>}
                           </td>
@@ -1887,7 +2112,7 @@
                                   style={btnGreen.base}
                                   onMouseEnter={e => Object.assign(e.currentTarget.style, btnGreen.enter)}
                                   onMouseLeave={e => Object.assign(e.currentTarget.style, btnGreen.leave)}
-                                >{ptmActioningId === m.id ? "…" : "Approve"}</button>
+                                  >{ptmActioningId === m.id ? "…" : ({ activate: "Approve", deactivate: "Approve deactivation", remove: "Approve removal" })[getPtmType(m)]}</button>
                                 <button
                                   disabled={ptmActioningId === m.id}
                                   onClick={() => handlePtmDecision(m.id, "deny")}
@@ -1915,6 +2140,12 @@
             monumentLoading ? (
               <div style={{ padding: "48px 0", textAlign: "center", color: textMuted, fontSize: 13 }}>Loading monument setting requests…</div>
             ) : (
+              <>
+              <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 12 }}>
+                <ActionBtn onClick={exportMonumentCsv} disabled={monumentRequests.length === 0} color={primary} hoverColor={primaryHover}>
+                  Export CSV
+                </ActionBtn>
+              </div>
               <MonumentSettingTab
                 requests={monumentRequests}
                 partners={partners}
@@ -1923,6 +2154,7 @@
                   setMonumentRequests(prev => prev.map(r => r.id === updated.id ? updated : r))
                 }
               />
+            </>
             )
           )}
         </main>

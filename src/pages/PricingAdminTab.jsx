@@ -45,10 +45,13 @@ export default function PricingAdminTab({ token }) {
     locationId: "",
     packageId: "",
     packageName: "",
+    service: "",
+    items: "",
     restorationPrice: "",
     revenueShare: "",
     effectiveDate: localDate(),
   });
+
 
   const load = useCallback(async () => {
     try {
@@ -98,6 +101,8 @@ export default function PricingAdminTab({ token }) {
       locationId: String(row.locationId),
       packageId: String(row.packageId),
       packageName: "",
+      service: row.service || "",
+      items: Array.isArray(row.items) ? row.items.join("\n") : (row.items || ""),
       restorationPrice: String(row.restorationPrice),
       revenueShare: String(row.revenueShare),
       effectiveDate: localDate(),
@@ -117,13 +122,19 @@ export default function PricingAdminTab({ token }) {
       error("Check the amounts", "Revenue share must be between zero and the restoration price.");
       return;
     }
-    try {
-      setSaving(true);
-      await axios.post(`${BASE_URL}/admin/pricing`, {
-        clientAccountId: Number(form.clientAccountId),
-        locationId: Number(form.locationId),
-        ...(form.packageId ? { packageId: Number(form.packageId) } : { packageName: form.packageName.trim() }),
-        restorationPrice: price,
+    const items = form.items
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  try {
+    setSaving(true);
+    await axios.post(`${BASE_URL}/admin/pricing`, {
+      clientAccountId: Number(form.clientAccountId),
+      locationId: Number(form.locationId),
+      ...(form.packageId ? { packageId: Number(form.packageId) } : { packageName: form.packageName.trim() }),
+      service: form.service.trim(),
+      items,
+      restorationPrice: price,
         revenueShare: share,
         effectiveDate: form.effectiveDate,
       }, { headers: { Authorization: `Bearer ${token}` } });
@@ -132,6 +143,8 @@ export default function PricingAdminTab({ token }) {
         ...current,
         packageId: "",
         packageName: "",
+        service: "",
+        items: "",
         restorationPrice: "",
         revenueShare: "",
         effectiveDate: localDate(),
@@ -242,9 +255,23 @@ export default function PricingAdminTab({ token }) {
             <span style={labelStyle}>New package name</span>
             <input required maxLength={255} value={form.packageName} onChange={setField("packageName")} placeholder="e.g. Annual restoration" style={inputStyle} />
           </label>
-        )}
-        <label>
-          <span style={labelStyle}>Restoration price</span>
+                )}
+                <label>
+                  <span style={labelStyle}>Service</span>
+                  <input maxLength={255} value={form.service} onChange={setField("service")} placeholder="e.g. Headstone cleaning & restoration" style={inputStyle} />
+                </label>
+                <label style={{ gridColumn: "1 / -1" }}>
+                  <span style={labelStyle}>Items included (one per line)</span>
+                  <textarea
+                    rows={4}
+                    value={form.items}
+                    onChange={setField("items")}
+                    placeholder={"Gentle surface cleaning\nBiological growth removal\nBefore & after photos"}
+                    style={{ ...inputStyle, height: "auto", padding: 10, resize: "vertical", fontFamily: "inherit" }}
+                  />
+                </label>
+                <label>
+                  <span style={labelStyle}>Restoration price</span>
           <input required type="number" min="0" step="0.01" value={form.restorationPrice} onChange={setField("restorationPrice")} style={inputStyle} />
         </label>
         <label>
@@ -390,7 +417,7 @@ export default function PricingAdminTab({ token }) {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
             <thead><tr style={{ background: "#F8FAFC", color: "#6B7280", textAlign: "left" }}>
-              {["Client", "Property", "Package", "Restoration", "Revenue share", "Invoice", "Effective", "Action"].map((heading) => <th key={heading} style={{ padding: "11px 14px", whiteSpace: "nowrap", fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em" }}>{heading}</th>)}
+            {["Client", "Property", "Package", "Service / Items", "Restoration", "Revenue share", "Invoice", "Effective", "Action"].map((heading) => <th key={heading} style={{ padding: "11px 14px", whiteSpace: "nowrap", fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em" }}>{heading}</th>)}
             </tr></thead>
             <tbody>
               {pricing.map((row) => (
@@ -398,6 +425,14 @@ export default function PricingAdminTab({ token }) {
                   <td style={{ padding: "12px 14px" }}>{row.clientAccount?.name || `Client #${row.clientAccountId}`}</td>
                   <td style={{ padding: "12px 14px" }}>{row.location?.name || `Property #${row.locationId}`}</td>
                   <td style={{ padding: "12px 14px" }}>{row.package?.name || `Package #${row.packageId}`}</td>
+                  <td style={{ padding: "12px 14px", minWidth: 200 }}>
+                    {row.service ? <div style={{ fontWeight: 600 }}>{row.service}</div> : <span style={{ color: "#9CA3AF" }}>—</span>}
+                    {Array.isArray(row.items) && row.items.length > 0 && (
+                      <ul style={{ margin: "4px 0 0", paddingLeft: 16, color: "#6B7280", fontSize: 11.5 }}>
+                        {row.items.map((item, i) => <li key={i}>{item}</li>)}
+                      </ul>
+                    )}
+                  </td>
                   <td style={{ padding: "12px 14px" }}>{money(row.restorationPrice)}</td>
                   <td style={{ padding: "12px 14px" }}>{money(row.revenueShare)}</td>
                   <td style={{ padding: "12px 14px", color: "#1669A9", fontWeight: 700 }}>{money(Number(row.restorationPrice) - Number(row.revenueShare))}</td>
