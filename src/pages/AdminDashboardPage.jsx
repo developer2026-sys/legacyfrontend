@@ -1693,12 +1693,18 @@
                                   onMouseLeave={e => Object.assign(e.currentTarget.style, btnBlue.leave)}
                                 >Upload</button>
                               )}
-                              <button
+                                                         <button
                                 onClick={() => handleOpenRequest(r)}
                                 style={btnGold.base}
                                 onMouseEnter={e => Object.assign(e.currentTarget.style, btnGold.enter)}
                                 onMouseLeave={e => Object.assign(e.currentTarget.style, btnGold.leave)}
                               >View</button>
+                              <button
+                                onClick={() => setDeleteRequest(r)}
+                                style={btnRed.base}
+                                onMouseEnter={e => Object.assign(e.currentTarget.style, btnRed.enter)}
+                                onMouseLeave={e => Object.assign(e.currentTarget.style, btnRed.leave)}
+                              >Delete</button>
                             </div>
                           </td>
                         </tr>
