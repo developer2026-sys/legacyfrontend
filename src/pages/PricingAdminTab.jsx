@@ -25,11 +25,14 @@ const localDate = () => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 };
 const money = (value) => `$${Number(value || 0).toFixed(2)}`;
+const itemOf = (row) => row.item || (Array.isArray(row.items) ? row.items.join(", ") : "") || "";
+
+
 
 export default function PricingAdminTab({ token }) {
   const { success, error } = useToast();
   const [accounts, setAccounts] = useState([]);
-  const [packages, setPackages] = useState([]);
+  
   const [pricing, setPricing] = useState([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -43,13 +46,12 @@ export default function PricingAdminTab({ token }) {
   const [form, setForm] = useState({
     clientAccountId: "",
     locationId: "",
-    packageId: "",
-    packageName: "",
     service: "",
-    items: "",
+    item: "",
     restorationPrice: "",
     revenueShare: "",
     effectiveDate: localDate(),
+
   });
 
 
@@ -62,7 +64,7 @@ export default function PricingAdminTab({ token }) {
       setVisibilityAccountId((current) => current || String(data.accounts?.[0]?.id || ""));
       setApAccountId((current) => current || String(data.accounts?.[0]?.id || ""));
       setApDestinationDraft((current) => current || data.accounts?.[0]?.accountsPayableEmail || "");
-      setPackages(data.packages || []);
+      
       setPricing(data.pricing || []);
     } catch (e) {
       error("Pricing unavailable", e?.response?.data?.message || "Could not load pricing configuration.");
@@ -84,7 +86,14 @@ export default function PricingAdminTab({ token }) {
     clientAdminPriceVisibility: visibilityAccount?.clientAdminPriceVisibility || "none",
   };
   const properties = (selectedAccount?.locations || []).filter((location) => location.status === "active");
-  const selectedPackage = packages.find((item) => String(item.id) === form.packageId);
+  const selectedProperty = properties.find((location) => String(location.id) === form.locationId);
+  const packageName = [form.service.trim(), form.item.trim(), selectedProperty?.name]
+    .filter(Boolean)
+    .join(" - ")
+    .slice(0, 255);
+  const serviceSuggestions = [...new Set(pricing.map((row) => row.service).filter(Boolean))].sort();
+
+  
   const invoicePreview = Number(form.restorationPrice || 0) - Number(form.revenueShare || 0);
   const setField = (field) => (event) => setForm((current) => ({ ...current, [field]: event.target.value }));
 
@@ -99,10 +108,8 @@ export default function PricingAdminTab({ token }) {
     setForm({
       clientAccountId: String(row.clientAccountId),
       locationId: String(row.locationId),
-      packageId: String(row.packageId),
-      packageName: "",
       service: row.service || "",
-      items: Array.isArray(row.items) ? row.items.join("\n") : (row.items || ""),
+      item: itemOf(row),
       restorationPrice: String(row.restorationPrice),
       revenueShare: String(row.revenueShare),
       effectiveDate: localDate(),
@@ -114,37 +121,31 @@ export default function PricingAdminTab({ token }) {
     event.preventDefault();
     const price = Number(form.restorationPrice);
     const share = Number(form.revenueShare);
-    if (!form.clientAccountId || !form.locationId || (!form.packageId && !form.packageName.trim())) {
-      error("Missing details", "Choose a client, property, and package.");
+    if (!form.clientAccountId || !form.locationId || !form.service.trim() || !form.item.trim()) {
+      error("Missing details", "Choose a client and property, and enter a service and an item.");
       return;
     }
     if (!Number.isFinite(price) || !Number.isFinite(share) || price < 0 || share < 0 || share > price) {
       error("Check the amounts", "Revenue share must be between zero and the restoration price.");
       return;
     }
-    const items = form.items
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  try {
-    setSaving(true);
-    await axios.post(`${BASE_URL}/admin/pricing`, {
-      clientAccountId: Number(form.clientAccountId),
-      locationId: Number(form.locationId),
-      ...(form.packageId ? { packageId: Number(form.packageId) } : { packageName: form.packageName.trim() }),
-      service: form.service.trim(),
-      items,
-      restorationPrice: price,
+    try {
+      setSaving(true);
+      await axios.post(`${BASE_URL}/admin/pricing`, {
+        clientAccountId: Number(form.clientAccountId),
+        locationId: Number(form.locationId),
+        service: form.service.trim(),
+        item: form.item.trim(),
+        packageName,
+        restorationPrice: price,
         revenueShare: share,
         effectiveDate: form.effectiveDate,
       }, { headers: { Authorization: `Bearer ${token}` } });
       success("Pricing saved", "A new effective-dated price was recorded. Existing requests were not changed.");
       setForm((current) => ({
         ...current,
-        packageId: "",
-        packageName: "",
         service: "",
-        items: "",
+        item: "",
         restorationPrice: "",
         revenueShare: "",
         effectiveDate: localDate(),
@@ -243,24 +244,16 @@ export default function PricingAdminTab({ token }) {
             {properties.map((location) => <option key={location.id} value={location.id}>{location.name}</option>)}
           </select>
         </label>
+       
         <label>
-          <span style={labelStyle}>Package</span>
-          <select value={form.packageId} onChange={(event) => setForm((current) => ({ ...current, packageId: event.target.value, packageName: "" }))} style={inputStyle}>
-            <option value="">＋ Add a package name</option>
-            {packages.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}
-          </select>
+          <span style={labelStyle}>Item</span>
+          <input required maxLength={120} value={form.item} onChange={setField("item")} placeholder="e.g. Basic wash" style={inputStyle} />
         </label>
-        {!form.packageId && (
-          <label>
-            <span style={labelStyle}>New package name</span>
-            <input required maxLength={255} value={form.packageName} onChange={setField("packageName")} placeholder="e.g. Annual restoration" style={inputStyle} />
-          </label>
-                )}
-                <label>
+        <label>
                   <span style={labelStyle}>Service</span>
                   <input maxLength={255} value={form.service} onChange={setField("service")} placeholder="e.g. Headstone cleaning & restoration" style={inputStyle} />
                 </label>
-                <label style={{ gridColumn: "1 / -1" }}>
+                {/* <label style={{ gridColumn: "1 / -1" }}>
                   <span style={labelStyle}>Items included (one per line)</span>
                   <textarea
                     rows={4}
@@ -269,7 +262,7 @@ export default function PricingAdminTab({ token }) {
                     placeholder={"Gentle surface cleaning\nBiological growth removal\nBefore & after photos"}
                     style={{ ...inputStyle, height: "auto", padding: 10, resize: "vertical", fontFamily: "inherit" }}
                   />
-                </label>
+                </label> */}
                 <label>
                   <span style={labelStyle}>Restoration price</span>
           <input required type="number" min="0" step="0.01" value={form.restorationPrice} onChange={setField("restorationPrice")} style={inputStyle} />
@@ -285,7 +278,7 @@ export default function PricingAdminTab({ token }) {
         <div style={{ alignSelf: "end", paddingBottom: 1 }}>
           <div style={{ color: "#6B7280", fontSize: 11, marginBottom: 7 }}>
             Invoice preview: <strong style={{ color: "#1669A9" }}>{money(invoicePreview)}</strong>
-            {selectedPackage ? ` · ${selectedPackage.name}` : ""}
+            {packageName ? ` · ${packageName}` : ""}
           </div>
           <button type="submit" disabled={saving} style={{ height: 40, padding: "0 16px", border: 0, borderRadius: 7, background: "#1669A9", color: "#FFFFFF", fontSize: 12.5, fontWeight: 600, cursor: saving ? "wait" : "pointer" }}>
             {saving ? "Saving…" : "Save pricing"}
@@ -370,7 +363,8 @@ export default function PricingAdminTab({ token }) {
             <span style={labelStyle}>Family Advisors see</span>
             <select
               value={visibilitySettings.familyAdvisorPriceVisibility}
-              onChange={(event) => setVisibilityDraft((current) => ({ ...current, familyAdvisorPriceVisibility: event.target.value }))}
+              onChange={(event) => setVisibilityDraft({ ...visibilitySettings, familyAdvisorPriceVisibility: event.target.value })}
+
               style={inputStyle}
               disabled={!visibilityAccount}
             >
@@ -383,7 +377,7 @@ export default function PricingAdminTab({ token }) {
             <span style={labelStyle}>Client Admins see</span>
             <select
               value={visibilitySettings.clientAdminPriceVisibility}
-              onChange={(event) => setVisibilityDraft((current) => ({ ...current, clientAdminPriceVisibility: event.target.value }))}
+              onChange={(event) => setVisibilityDraft({ ...visibilitySettings, clientAdminPriceVisibility: event.target.value })}
               style={inputStyle}
               disabled={!visibilityAccount}
             >
@@ -417,22 +411,16 @@ export default function PricingAdminTab({ token }) {
         <div style={{ overflowX: "auto" }}>
           <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12.5 }}>
             <thead><tr style={{ background: "#F8FAFC", color: "#6B7280", textAlign: "left" }}>
-            {["Client", "Property", "Package", "Service / Items", "Restoration", "Revenue share", "Invoice", "Effective", "Action"].map((heading) => <th key={heading} style={{ padding: "11px 14px", whiteSpace: "nowrap", fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em" }}>{heading}</th>)}
+            {["Client", "Property", "Service", "Item", "Restoration", "Revenue share", "Invoice", "Effective", "Action"].map((heading) => <th key={heading} style={{ padding: "11px 14px", whiteSpace: "nowrap", fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em" }}>{heading}</th>)}
             </tr></thead>
             <tbody>
               {pricing.map((row) => (
                 <tr key={row.id} style={{ borderTop: "1px solid #E5EAF0" }}>
                   <td style={{ padding: "12px 14px" }}>{row.clientAccount?.name || `Client #${row.clientAccountId}`}</td>
                   <td style={{ padding: "12px 14px" }}>{row.location?.name || `Property #${row.locationId}`}</td>
-                  <td style={{ padding: "12px 14px" }}>{row.package?.name || `Package #${row.packageId}`}</td>
-                  <td style={{ padding: "12px 14px", minWidth: 200 }}>
-                    {row.service ? <div style={{ fontWeight: 600 }}>{row.service}</div> : <span style={{ color: "#9CA3AF" }}>—</span>}
-                    {Array.isArray(row.items) && row.items.length > 0 && (
-                      <ul style={{ margin: "4px 0 0", paddingLeft: 16, color: "#6B7280", fontSize: 11.5 }}>
-                        {row.items.map((item, i) => <li key={i}>{item}</li>)}
-                      </ul>
-                    )}
-                  </td>
+                  <td style={{ padding: "12px 14px", fontWeight: 600 }}>{row.service || <span style={{ color: "#9CA3AF" }}>—</span>}</td>
+                  <td style={{ padding: "12px 14px" }}>{itemOf(row) || <span style={{ color: "#9CA3AF" }}>—</span>}</td>
+
                   <td style={{ padding: "12px 14px" }}>{money(row.restorationPrice)}</td>
                   <td style={{ padding: "12px 14px" }}>{money(row.revenueShare)}</td>
                   <td style={{ padding: "12px 14px", color: "#1669A9", fontWeight: 700 }}>{money(Number(row.restorationPrice) - Number(row.revenueShare))}</td>

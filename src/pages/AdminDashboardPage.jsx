@@ -615,7 +615,7 @@
         <DetailRow label="Lot Number" value={request.lot} />
         <DetailRow label="Space Number" value={request.space} />
         <DetailRow label="Vase Information" value={request.vaseInfo} />
-        <DetailRow label="Package" value={request.packageNameSnapshot || request.package?.name || request.packageType} />
+      
 <DetailRow label="Term" value={request.term} />
 <DetailRow label="Client / Property ID" value={`${request.clientAccountId ?? "—"} / ${request.locationId ?? "—"}`} />
 

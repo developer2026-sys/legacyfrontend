@@ -98,34 +98,32 @@ function DetailRow({ label, value }) {
   );
 }
 
-function toItemList(items) {
-  if (Array.isArray(items)) return items;
-  if (typeof items === "string") {
-    try {
-      const parsed = JSON.parse(items);
-      return Array.isArray(parsed) ? parsed : [];
-    } catch {
-      return [];
-    }
-  }
-  return [];
-}
 
-function PackageOffer({ service, items }) {
-  const list = toItemList(items);
-  if (!service && list.length === 0) return null;
+
+function PackageOffer({ service, item }) {
+  if (!service && !item) return null;
   return (
     <div className="mt-3 rounded-lg p-4" style={{ backgroundColor: "#F0F7FF", border: "1px solid #BFDBFE" }}>
-      <div className="text-xs font-medium mb-1" style={{ color: "#6B7280" }}>What this package includes</div>
-      {service && <div className="text-sm font-semibold" style={{ color: "#1A1A2E" }}>{service}</div>}
-      {list.length > 0 && (
-        <ul className="mt-2 list-disc pl-5 space-y-1 text-sm" style={{ color: "#374151" }}>
-          {list.map((item, i) => <li key={i}>{item}</li>)}
-        </ul>
+      {service && (
+        <>
+          <div className="text-xs font-medium" style={{ color: "#6B7280" }}>Service</div>
+          <div className="text-sm font-semibold" style={{ color: "#1A1A2E" }}>{service}</div>
+        </>
+      )}
+      {item && (
+        <>
+          <div className="text-xs font-medium mt-2" style={{ color: "#6B7280" }}>Item</div>
+          <div className="text-sm font-semibold" style={{ color: "#1A1A2E" }}>{item}</div>
+        </>
       )}
     </div>
   );
 }
+
+// Rows saved before this change have no service/item; fall back to the package name.
+const serviceOf = (row) => row.service || row.package?.name || "Other";
+const itemOf = (row) => row.item || (Array.isArray(row.items) ? row.items[0] : null) || "Standard";
+
 
 function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClose }) {
   const statusHistory = [...(request.statusHistory || [])].sort(
@@ -179,11 +177,9 @@ function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClo
           <h4 className="text-sm font-semibold mb-4" style={{ color: "#1669A9" }}>Package & Property</h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <DetailRow label="Property" value={request.memorialLocation} />
-            <DetailRow label="Package" value={request.packageNameSnapshot || request.package?.name} />
+            <DetailRow label="Service" value={request.serviceSnapshot || request.packageNameSnapshot || request.package?.name} />
+            <DetailRow label="Item" value={request.itemSnapshot} />
             <DetailRow label="Term" value={request.term} />
-            <div className="sm:col-span-2">
-              <PackageOffer service={request.serviceSnapshot} items={request.itemsSnapshot} />
-            </div>
             {priceVisibility === "customer_retail" && request.customerRetailPrice != null && (
               <DetailRow label="Customer Retail Price" value={`$${Number(request.customerRetailPrice).toFixed(2)}`} />
             )}
@@ -258,6 +254,7 @@ export default function DashboardPage({ partnerName = "Partner", partner = null,
   const [priceVisibility, setPriceVisibility] = useState("none");
   const [selectedLocationId, setSelectedLocationId] = useState("");
   const [selectedPricingId, setSelectedPricingId] = useState("");
+  const [selectedService, setSelectedService] = useState("");
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
@@ -1161,7 +1158,8 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     requestNumber: r.requestNumber || `#${r.id}`,
     customer: r.customerName,
     location: r.memorialLocation,
-    pkg: r.packageNameSnapshot || r.package?.name || r.packageType || "—",
+    pkg: [r.serviceSnapshot, r.itemSnapshot].filter(Boolean).join(" — ")
+    || r.packageNameSnapshot || r.package?.name || r.packageType || "—",
     status: r.status,
     invoicePaymentStatus: r.invoice?.paymentStatus || null,
     invoicePaidDate: r.invoice?.paidDate || null,
@@ -1208,22 +1206,32 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     if (!showNew) return;
     setSelectedLocationId(editingDraft?.locationId ? String(editingDraft.locationId) : "");
     setSelectedPricingId(editingDraft?.draftPricingId ? String(editingDraft.draftPricingId) : "");
+    setSelectedService("");
     const headers = { Authorization: `Bearer ${token}` };
     Promise.all([
       axios.get(`${BASE_URL}/available-pricing`, { headers }),
       axios.get(`${BASE_URL}/request-options`, { headers }),
     ]).then(([pricingResponse, optionsResponse]) => {
+
+      console.log(pricingResponse)
+      console.log("PRICIG RESPONSE")
       const pricingRows = pricingResponse.data.pricing || [];
       setAvailablePricing(pricingRows);
+      if (editingDraft?.draftPricingId) {
+        const draftRow = pricingRows.find((item) => String(item.id) === String(editingDraft.draftPricingId));
+        if (draftRow) setSelectedService(serviceOf(draftRow));
+      }
       if (editingDraft && !editingDraft.draftPricingId) {
         const currentPackagePrice = pricingRows.find((item) =>
           String(item.locationId) === String(editingDraft.locationId) &&
           String(item.packageId) === String(editingDraft.packageId)
         );
         setSelectedPricingId(currentPackagePrice ? String(currentPackagePrice.id) : "");
+        if (currentPackagePrice) setSelectedService(serviceOf(currentPackagePrice));
       }
       setAvailableProperties(optionsResponse.data.properties || []);
       setPhotosRequired(Boolean(optionsResponse.data.photosRequired));
+      console.log("priceVisibility:", optionsResponse.data.priceVisibility);
       setPriceVisibility(optionsResponse.data.priceVisibility || "none");
     }).catch((err) => {
       setAvailablePricing([]);
@@ -1238,6 +1246,15 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
   const selectedPricingRow = availablePricing.find(
     (item) => String(item.id) === selectedPricingId
   );
+  const serviceOptions = [...new Set(propertyPricing.map(serviceOf))].sort();
+  const itemOptions = propertyPricing.filter((row) => serviceOf(row) === selectedService);
+  const priceLabel = (row) => {
+    const value =
+      priceVisibility === "customer_retail" ? row.customerRetailPrice
+      : priceVisibility === "restoration" ? row.restorationPrice
+      : null;
+    return value != null && value !== "" ? `$${Number(value).toFixed(2)}` : "";
+  };
 
   useEffect(() => {
     void fetchRequests();
@@ -2098,6 +2115,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                     value={selectedLocationId}
                     onChange={(event) => {
                       setSelectedLocationId(event.target.value);
+                      setSelectedService("");
                       setSelectedPricingId("");
                     }}
                     className="w-full h-12 px-4 rounded-lg text-sm transition"
@@ -2118,40 +2136,64 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                 </div>
 
                 <div>
-                  <label
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: "#374151" }}
-                  >
-                    Package
+                  <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+                    Service
                   </label>
                   <select
-                    name="pricingId"
                     required
-                    value={selectedPricingId}
-                    onChange={(event) => setSelectedPricingId(event.target.value)}
+                    value={selectedService}
+                    onChange={(event) => { setSelectedService(event.target.value); setSelectedPricingId(""); }}
                     disabled={!selectedLocationId}
                     className="w-full h-12 px-4 rounded-lg text-sm transition"
                     style={inputStyle}
                     onFocus={handleInputFocus}
                     onBlur={handleInputBlur}
                   >
-                    <option value="">Select a package…</option>
-                    {propertyPricing.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.package?.name || `Package #${item.packageId}`}
-                        {priceVisibility === "customer_retail" && item.customerRetailPrice != null
-                          ? ` — Customer retail $${Number(item.customerRetailPrice).toFixed(2)}`
-                          : priceVisibility === "restoration" && item.restorationPrice != null
-                            ? ` — Restoration $${Number(item.restorationPrice).toFixed(2)}`
-                            : ""}
-                      </option>
-                    ))}
+                    <option value="">Select a service…</option>
+                    {serviceOptions.map((name) => <option key={name} value={name}>{name}</option>)}
                   </select>
-                  <PackageOffer service={selectedPricingRow?.service} items={selectedPricingRow?.items} />
                   {availablePricing.length === 0 && (
                     <p className="mt-2 text-xs" style={{ color: "#B45309" }}>
                       No active prices are set for your properties yet. Ask your administrator to configure pricing.
                     </p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+                    Item
+                  </label>
+                  <select
+                    name="pricingId"
+                    required
+                    value={selectedPricingId}
+                    onChange={(event) => setSelectedPricingId(event.target.value)}
+                    disabled={!selectedService}
+                    className="w-full h-12 px-4 rounded-lg text-sm transition"
+                    style={inputStyle}
+                    onFocus={handleInputFocus}
+                    onBlur={handleInputBlur}
+                  >
+                    <option value="">Select an item…</option>
+                    {itemOptions.map((row) => (
+                      <option key={row.id} value={row.id}>
+                        {itemOf(row)}{priceLabel(row) ? ` — ${priceLabel(row)}` : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedPricingRow && (
+                    <div className="mt-3 rounded-lg p-4 flex items-center justify-between gap-3" style={{ backgroundColor: "#F0F7FF", border: "1px solid #BFDBFE" }}>
+                      <span className="text-sm" style={{ color: "#374151" }}>
+                        {serviceOf(selectedPricingRow)} · {itemOf(selectedPricingRow)}
+                      </span>
+                      {priceLabel(selectedPricingRow) ? (
+                        <span className="text-lg font-bold whitespace-nowrap" style={{ color: "#1669A9" }}>
+                          {priceLabel(selectedPricingRow)}
+                        </span>
+                      ) : (
+                        <span className="text-xs" style={{ color: "#6B7280" }}>Price not available</span>
+                      )}
+                    </div>
                   )}
                 </div>
 
@@ -2407,12 +2449,14 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
           }}
         >
           <div className="text-xs font-medium mb-1" style={{ color: "#6B7280" }}>
-            Selected Package
+          Selected Service
           </div>
           <div className="text-lg font-semibold" style={{ color: "#1A1A2E" }}>
-          {submittedPkg.packageNameSnapshot || submittedPkg.package?.name || "Selected package"}
+            {submittedPkg.serviceSnapshot || submittedPkg.packageNameSnapshot || "Selected service"}
           </div>
-          <PackageOffer service={submittedPkg.serviceSnapshot} items={submittedPkg.itemsSnapshot} />
+          {submittedPkg.itemSnapshot && (
+            <div className="text-sm mt-1" style={{ color: "#374151" }}>{submittedPkg.itemSnapshot}</div>
+          )}
           
           {priceVisibility === "customer_retail" && submittedPkg.customerRetailPrice != null && (
             <div className="text-2xl font-bold mt-1" style={{ color: "#1669A9" }}>
