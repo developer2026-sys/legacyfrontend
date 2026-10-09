@@ -331,13 +331,13 @@ export default function ResetPasswordPage() {
         <p className="mt-6 text-center text-xs" style={{ color: "#9CA3AF" }}>
           Questions? Call us at{" "}
           <a
-            href="tel:+10000000000"
+            href="tel:+13179703904"
             className="transition"
             style={{ color: "#6B7280" }}
             onMouseEnter={(e) => (e.currentTarget.style.color = "#1669A9")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "#6B7280")}
           >
-            (000) 000-0000
+             +1 (317) 970-3904 
           </a>
         </p>
 

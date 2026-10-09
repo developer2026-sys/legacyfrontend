@@ -405,7 +405,7 @@ export default function RegistrationPage({ onSuccess }) {
             onMouseEnter={(e) => (e.currentTarget.style.color = "#1669A9")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "#6B7280")}
           >
-            317.970.3904
+            +1 (317) 970-3904 
           </a>
         </p>
 
