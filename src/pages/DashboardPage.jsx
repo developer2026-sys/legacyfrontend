@@ -125,7 +125,111 @@ const serviceOf = (row) => row.service || row.package?.name || "Other";
 const itemOf = (row) => row.item || (Array.isArray(row.items) ? row.items[0] : null) || "Standard";
 
 
+function getDocUrl(doc) {
+  const rawPath = doc.storagePath || doc.storage_path || doc.url || "";
+  if (/^https?:\/\//i.test(rawPath)) return rawPath;
+  const lastSegment = rawPath.split(/[/\\]/).pop() || "";
+  return lastSegment ? `${BASE_URL.replace(/\/api\/?$/, "")}/files/${lastSegment}` : null;
+}
+
+function getDocName(doc, i) {
+  const rawPath = doc.storagePath || doc.storage_path || doc.url || "";
+  const lastSegment = rawPath.split(/[/\\]/).pop() || "";
+  return doc.originalName || doc.original_name || (lastSegment ? decodeURIComponent(lastSegment) : `File ${i + 1}`);
+}
+
+function getDocIcon(name = "") {
+  const ext = name.split(".").pop().toLowerCase();
+  if (["jpg", "jpeg", "png", "gif", "webp"].includes(ext)) return "🖼️";
+  if (ext === "pdf") return "📄";
+  if (["doc", "docx"].includes(ext)) return "📝";
+  return "📎";
+}
+
+function ExistingDocuments({ request, readOnly = false }) {
+  const seen = new Set();
+  const files = [...(request?.photos || []), ...(request?.documents || [])].filter((f) => {
+    const key = f.id ?? f.storagePath ?? f.storage_path ?? f.url;
+    if (key == null) return true;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+  if (files.length === 0) {
+    return readOnly
+      ? <p className="text-sm" style={{ color: "#6B7280" }}>No files uploaded.</p>
+      : null;
+  }
+  return (
+    <div>
+           {!readOnly && (
+        <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
+          Previously Uploaded Files{" "}
+          <span className="text-xs font-normal" style={{ color: "#6B7280" }}>({files.length})</span>
+        </label>
+      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        {files.map((doc, i) => {
+          const name = getDocName(doc, i);
+          const url = getDocUrl(doc);
+          const uploaded = doc.createdAt || doc.created_at;
+          return (
+            <div
+              key={doc.id ?? i}
+              style={{
+                display: "flex", alignItems: "center", gap: 12,
+                backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0",
+                borderRadius: 8, padding: "10px 14px",
+              }}
+            >
+              <div
+                style={{
+                  width: 36, height: 36, borderRadius: 6, flexShrink: 0,
+                  backgroundColor: "rgba(22,105,169,0.08)", border: "1px solid rgba(22,105,169,0.25)",
+                  display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18,
+                }}
+              >
+                {getDocIcon(name)}
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ color: "#1A1A2E", fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {name}
+                </div>
+                {uploaded && (
+                  <div style={{ color: "#9CA3AF", fontSize: 11, marginTop: 2 }}>
+                    Uploaded {new Date(uploaded).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                  </div>
+                )}
+              </div>
+              {url && (
+                <a
+                  href={url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  style={{
+                    color: "#1669A9", fontSize: 11.5, textDecoration: "none", flexShrink: 0,
+                    border: "1px solid rgba(22,105,169,0.25)", borderRadius: 6, padding: "4px 10px",
+                    backgroundColor: "rgba(22,105,169,0.06)",
+                  }}
+                >
+                  Open ↗
+                </a>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      {!readOnly && (
+        <p className="text-xs mt-2" style={{ color: "#6B7280" }}>
+          These files stay on the request. Use the field below to add more.
+        </p>
+      )}
+    </div>
+  );
+}
+
 function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClose }) {
+
   const statusHistory = [...(request.statusHistory || [])].sort(
     (a, b) => new Date(a.createdAt) - new Date(b.createdAt)
   );
@@ -212,6 +316,11 @@ function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClo
         <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
           <h4 className="text-sm font-semibold mb-2" style={{ color: "#1669A9" }}>Supporting Notes</h4>
           <p className="text-sm whitespace-pre-wrap" style={{ color: "#4B5563" }}>{request.notes || "No notes recorded."}</p>
+        </div>
+
+        <div className="rounded-xl p-5 mb-4" style={{ backgroundColor: "#F9FAFB", border: "1px solid #E5EAF0" }}>
+          <h4 className="text-sm font-semibold mb-3" style={{ color: "#1669A9" }}>Uploaded Files</h4>
+          <ExistingDocuments request={request} readOnly />
         </div>
 
         <h3 className="text-sm font-semibold mb-3" style={{ color: "#1A1A2E" }}>Status history</h3>
@@ -2236,17 +2345,18 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     onBlur={handleInputBlur}
   />
 </div>
-                <div>
-                  <label
-                    className="block text-sm font-medium mb-2"
-                    style={{ color: "#374151" }}
-                  >
-                    Photos{" "}
-                    <span className="text-xs font-normal" style={{ color: "#6B7280" }}>
-                    ({photosRequired ? "required" : "optional"} · up to 10 · jpg/png/webp · 4 MB each)
-                    </span>
-                  </label>
+{editingDraft && <ExistingDocuments request={editingDraft} />}
 
+<div>
+  <label
+    className="block text-sm font-medium mb-2"
+    style={{ color: "#374151" }}
+  >
+    {editingDraft ? "Add More Photos" : "Photos"}{" "}
+    <span className="text-xs font-normal" style={{ color: "#6B7280" }}>
+    ({photosRequired ? "required" : "optional"} · up to 10 · jpg/png/webp · 4 MB each)
+    </span>
+  </label>
                   <input
                     id="photo-upload"
                     type="file"
