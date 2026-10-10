@@ -146,9 +146,10 @@ function getDocIcon(name = "") {
   return "📎";
 }
 
-function ExistingDocuments({ request, readOnly = false }) {
+function ExistingDocuments({ request, readOnly = false, removedIds = [], onRemove }) {
   const seen = new Set();
   const files = [...(request?.photos || []), ...(request?.documents || [])].filter((f) => {
+    if (f.id != null && removedIds.includes(f.id)) return false;
     const key = f.id ?? f.storagePath ?? f.storage_path ?? f.url;
     if (key == null) return true;
     if (seen.has(key)) return false;
@@ -212,8 +213,22 @@ function ExistingDocuments({ request, readOnly = false }) {
                     backgroundColor: "rgba(22,105,169,0.06)",
                   }}
                 >
-                  Open ↗
+                               Open ↗
                 </a>
+              )}
+                           {!readOnly && onRemove && doc.id != null && (!doc.attachmentType || doc.attachmentType === "request_photo") && (
+                <button
+                  type="button"
+                  onClick={() => onRemove(doc.id)}
+                  title="Remove file"
+                  style={{
+                    color: "#DC2626", fontSize: 11.5, flexShrink: 0, cursor: "pointer",
+                    border: "1px solid rgba(220,38,38,0.3)", borderRadius: 6, padding: "4px 10px",
+                    backgroundColor: "rgba(220,38,38,0.06)",
+                  }}
+                >
+                  Remove
+                </button>
               )}
             </div>
           );
@@ -367,8 +382,11 @@ export default function DashboardPage({ partnerName = "Partner", partner = null,
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
+  const [removedFileIds, setRemovedFileIds] = useState([]);
 
   const [showSubmissionConfirmation, setShowSubmissionConfirmation] = useState(false);
+
+
   const [submittedPkg, setSubmittedPkg] = useState(null);
   const [selectedRequest, setSelectedRequest] = useState(null);
   const isFamilyAdvisor = partner?.accountRole === "family_advisor";
@@ -1312,6 +1330,10 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
   }, [handleAuthFailure, toastError, token]);
 
   useEffect(() => {
+    setRemovedFileIds([]);
+  }, [editingDraft, showNew]);
+
+  useEffect(() => {
     if (!showNew) return;
     setSelectedLocationId(editingDraft?.locationId ? String(editingDraft.locationId) : "");
     setSelectedPricingId(editingDraft?.draftPricingId ? String(editingDraft.draftPricingId) : "");
@@ -1410,7 +1432,9 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     payload.append("notes", String(formValues.get("familyNotes") || ""));
     payload.append("term", String(formValues.get("term") || ""));
     selectedPhotos.forEach((file) => payload.append("photos", file));
+    payload.append("removedFileIds", JSON.stringify(removedFileIds));
     return payload;
+
   };
 
   const submitNewRequest = async (e) => {
@@ -1542,7 +1566,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
             </span>
             <button
               onClick={handleLogout}
-              className="text-xs sm:text-sm font-medium transition"
+              className="text-xs cursor-pointer sm:text-sm font-medium transition"
               style={{ color: "#6B7280" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#1669A9")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6B7280")}
@@ -1553,7 +1577,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
               onClick={() => {
                 window.location.href = "/app/account";
               }}
-              className="text-xs sm:text-sm font-medium transition"
+              className="text-xs cursor-pointer sm:text-sm font-medium transition"
               style={{ color: "#6B7280" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#1669A9")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6B7280")}
@@ -1564,7 +1588,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
               onClick={() => {
                 window.location.href = "/app/support";
               }}
-              className="text-xs sm:text-sm font-medium transition"
+              className="text-xs cursor-pointer sm:text-sm font-medium transition"
               style={{ color: "#6B7280" }}
               onMouseEnter={(e) => (e.currentTarget.style.color = "#1669A9")}
               onMouseLeave={(e) => (e.currentTarget.style.color = "#6B7280")}
@@ -2345,8 +2369,13 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     onBlur={handleInputBlur}
   />
 </div>
-{editingDraft && <ExistingDocuments request={editingDraft} />}
-
+{editingDraft && (
+  <ExistingDocuments
+    request={editingDraft}
+    removedIds={removedFileIds}
+    onRemove={(id) => setRemovedFileIds((prev) => [...prev, id])}
+  />
+)}
 <div>
   <label
     className="block text-sm font-medium mb-2"

@@ -798,7 +798,7 @@
           </div>
         ) : (
           <div style={{ marginTop: 20 }}>
-            <div style={{ color: textMuted, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Update Status</div>
+            {/* <div style={{ color: textMuted, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Update Status</div>
             <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
               {(REQUEST_STATUS_TRANSITIONS[status] || []).map(s => (
                 <ActionBtn
@@ -813,7 +813,7 @@
                   {getRequestStatusLabel(s)}
                 </ActionBtn>
               ))}
-            </div>
+            </div> */}
           </div>
         )}
 
@@ -1549,7 +1549,7 @@ const exportMonumentCsv = () => {
           <div style={{ maxWidth: 1280, margin: "0 auto", padding: "12px 24px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 2 }}>
               <Logo />
-            <TeammemberButton/>
+            {/* <TeammemberButton/> */}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 20 }}>

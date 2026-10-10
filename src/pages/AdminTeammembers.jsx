@@ -285,13 +285,13 @@ export default function TeamMembers({ token }) {
               Manage who has access to the admin panel alongside you.
             </p>
           </div>
-          <ActionBtn
+          {/* <ActionBtn
             onClick={() => setShowInvite(true)}
             disabled={!canInvite || loading}
             style={{ flexShrink: 0 }}
           >
             + Add Member
-          </ActionBtn>
+          </ActionBtn> */}
         </div>
 
         {/* Usage bar */}
