@@ -1120,7 +1120,7 @@
 
     useEffect(() => {
       if (partnerTeamMembers.length > 0) {
-        console.log("PTM sample row:", partnerTeamMembers[0]);
+        
       }
     }, [partnerTeamMembers]);
 

@@ -132,7 +132,7 @@ function PartnerSettingsModal({ partner, token, onClose }) {
         ok("Settings updated", `Partnership settings saved for ${partner.username}.`);
         onClose();
       } catch (e) {
-        console.log(e.message)
+    
         err("Update failed", e?.response?.data?.message || "Could not update settings.");
       } finally {
         setSaving(false);

@@ -1344,8 +1344,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
       axios.get(`${BASE_URL}/request-options`, { headers }),
     ]).then(([pricingResponse, optionsResponse]) => {
 
-      console.log(pricingResponse)
-      console.log("PRICIG RESPONSE")
+    
       const pricingRows = pricingResponse.data.pricing || [];
       setAvailablePricing(pricingRows);
       if (editingDraft?.draftPricingId) {
@@ -1362,7 +1361,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
       }
       setAvailableProperties(optionsResponse.data.properties || []);
       setPhotosRequired(Boolean(optionsResponse.data.photosRequired));
-      console.log("priceVisibility:", optionsResponse.data.priceVisibility);
+     
       setPriceVisibility(optionsResponse.data.priceVisibility || "none");
     }).catch((err) => {
       setAvailablePricing([]);

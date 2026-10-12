@@ -82,7 +82,7 @@ function SectionCard({ title, description, children, accent }) {
 }
 
 export default function AccountPage({ token, onLogout }) {
-  console.log(token);
+
   const { success: toastSuccess, error: toastError } = useToast();
 
   const [profile, setProfile] = useState({ username: "", email: "", role: "" });
