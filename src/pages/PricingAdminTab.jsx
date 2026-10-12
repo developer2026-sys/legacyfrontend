@@ -301,7 +301,7 @@ export default function PricingAdminTab({ token }) {
         </div>
       )}
 
-      <div style={{ margin: "0 20px 18px", padding: 14, border: "1px solid #E5EAF0", borderRadius: 8, background: "#FAFCFE" }}>
+      {/* <div style={{ margin: "0 20px 18px", padding: 14, border: "1px solid #E5EAF0", borderRadius: 8, background: "#FAFCFE" }}>
         <div style={{ color: "#1A1A2E", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Accounts-payable invoice destination</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, alignItems: "end" }}>
           <label>
@@ -335,7 +335,7 @@ export default function PricingAdminTab({ token }) {
         <p style={{ margin: "9px 0 0", color: "#6B7280", fontSize: 11.5 }}>
           When a request is approved, its invoice is emailed to this address. Leaving it blank disables AP email for this client.
         </p>
-      </div>
+      </div> */}
 
       <div style={{ margin: "0 20px 18px", padding: 14, border: "1px solid #E5EAF0", borderRadius: 8, background: "#FAFCFE" }}>
         <div style={{ color: "#1A1A2E", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Price visibility by client</div>
