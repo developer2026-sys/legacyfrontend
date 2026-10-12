@@ -337,7 +337,7 @@ export default function PricingAdminTab({ token }) {
         </p>
       </div> */}
 
-      <div style={{ margin: "0 20px 18px", padding: 14, border: "1px solid #E5EAF0", borderRadius: 8, background: "#FAFCFE" }}>
+      {/* <div style={{ margin: "0 20px 18px", padding: 14, border: "1px solid #E5EAF0", borderRadius: 8, background: "#FAFCFE" }}>
         <div style={{ color: "#1A1A2E", fontWeight: 700, fontSize: 13, marginBottom: 10 }}>Price visibility by client</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, alignItems: "end" }}>
           <label>
@@ -398,7 +398,7 @@ export default function PricingAdminTab({ token }) {
         <p style={{ margin: "9px 0 0", color: "#6B7280", fontSize: 11.5 }}>
           New and existing clients default to None. Family Advisors never receive invoice amounts or revenue-share values.
         </p>
-      </div>
+      </div> */}
 
       <div style={{ padding: "15px 20px", borderBottom: "1px solid #E5EAF0", color: "#1A1A2E", fontWeight: 700, fontSize: 13 }}>
         Price history <span style={{ marginLeft: 6, color: "#9CA3AF", fontWeight: 400 }}>({pricing.length})</span>
