@@ -20,7 +20,7 @@ import { useNavigate } from "react-router-dom";
 function Logo({ size = 64 }) {
   return (
     <div className="flex items-center gap-3">
-<img src="https://res.cloudinary.com/dbjwbveqn/image/upload/v1789646047/cleanerlogo_fvdkle.jpg" alt="Lasting Legacy Cleaners" style={{ height: size, width: "auto", display: "block" }} />
+<img src="https://res.cloudinary.com/dbjwbveqn/image/upload/v1789646047/cleanerlogo_fvdkle.jpg" alt="Lasting Legacy Cleaners" style={{ height: "7rem", width: "7rem" }} />
 </div>
   );
 }
