@@ -183,8 +183,8 @@ export default function RegistrationPage({ onSuccess }) {
         password: form.password,
         fullName: form.fullName,
         organization: form.organization,
-        phone: form.phone,
-        ...(captchaToken ? { captchaToken } : {}),
+         phone: form.phone,
+        captchaToken, 
       };
       const { data } = await axios.post(`${BASE_URL}/register`, payload);
       const successMsg = data.message || "Your access request has been submitted. Our team will review and contact you shortly.";
@@ -363,7 +363,7 @@ export default function RegistrationPage({ onSuccess }) {
             {/* Submit */}
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !captchaToken}
               className="w-full h-12 rounded-lg text-sm font-semibold text-white transition disabled:opacity-60"
               style={{ backgroundColor: "#1669A9" }}
               onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = "#1E90CF")}
