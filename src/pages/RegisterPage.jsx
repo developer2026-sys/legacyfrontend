@@ -158,15 +158,15 @@ export default function RegistrationPage({ onSuccess }) {
       return "Password must be at least 8 characters.";
     if (form.password !== form.confirmPassword)
       return "Passwords do not match.";
-    // if (!form.agree)
-    //   return "Please agree to the Terms and Privacy Policy.";
-    // if (!captchaToken)
-    //   return "Please complete the reCAPTCHA verification.";
-    // return "";
-
     if (!form.agree)
-    
+      return "Please agree to the Terms and Privacy Policy.";
+    if (!captchaToken)
+      return "Please complete the reCAPTCHA verification.";
     return "";
+
+    // if (!form.agree)
+    
+    // return "";
   };
 
 
