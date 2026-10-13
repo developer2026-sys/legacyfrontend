@@ -1314,7 +1314,10 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
       });
       const raw = data.requests || [];
       setRawRequests(raw);
-      setDraftRequests(raw.filter((request) => ["DRAFT", "NEEDS_INFORMATION", "REJECTED"].includes(request.status)));
+      setDraftRequests(raw.filter((request) =>
+        ["DRAFT", "NEEDS_INFORMATION", "REJECTED"].includes(request.status) &&
+        (partner?.id == null || String(request.partnerId) === String(partner.id))
+      ));
       const all = raw.map(mapRequest);
       setActive(all.filter((r) => !["DRAFT", "COMPLETED", "REJECTED", "CANCELLED"].includes(r.status)));
       setCompleted(all.filter((r) => ["COMPLETED", "CANCELLED"].includes(r.status)));
