@@ -105,6 +105,7 @@
     return (
       <button onClick={onClick} style={{
         padding: "8px 20px", borderRadius: 8, fontSize: 13, fontWeight: 500, cursor: "pointer",
+        flexShrink: 0, whiteSpace: "nowrap",
         border: `1px solid ${active ? borderPrimary : border}`,
         backgroundColor: active ? "rgba(22,105,169,0.08)" : surface,
         color: active ? primary : textMuted, transition: "all .2s",
@@ -117,26 +118,36 @@
 
   // ─── Modal Wrapper ────────────────────────────────────────────────────────────
   function Modal({ title, subtitle, onClose, children }) {
+    const mobile = useIsMobile();
     return (
       <div style={{
         position: "fixed", inset: 0, zIndex: 60, display: "flex",
-        alignItems: "center", justifyContent: "center", padding: 16,
+        alignItems: mobile ? "flex-end" : "center", justifyContent: "center",
+        padding: mobile ? 0 : 16,
         backgroundColor: "rgba(26,26,46,0.5)", backdropFilter: "blur(4px)",
       }} onClick={onClose}>
         <div style={{
-          backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 16,
-          width: "100%", maxWidth: 540, maxHeight: "90vh", display: "flex", flexDirection: "column",
+          backgroundColor: surface, border: `1px solid ${border}`,
+          borderRadius: mobile ? "16px 16px 0 0" : 16,
+          width: "100%", maxWidth: mobile ? "100%" : 540,
+          maxHeight: mobile ? "92vh" : "90vh", display: "flex", flexDirection: "column",
+          boxSizing: "border-box", overflow: "hidden",
           boxShadow: "0 20px 60px rgba(22,105,169,0.12), 0 4px 16px rgba(0,0,0,0.08)",
         }} onClick={e => e.stopPropagation()}>
-          <div style={{ padding: "24px 28px 16px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
-            <div style={{ color: textPrimary, fontSize: 18, fontWeight: 700 }}>{title}</div>
-            {subtitle && <div style={{ color: textMuted, fontSize: 12.5, marginTop: 3 }}>{subtitle}</div>}
+          <div style={{ padding: mobile ? "16px 16px 12px" : "24px 28px 16px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
+            <div style={{ color: textPrimary, fontSize: mobile ? 16 : 18, fontWeight: 700, wordBreak: "break-word" }}>{title}</div>
+            {subtitle && <div style={{ color: textMuted, fontSize: 12.5, marginTop: 3, wordBreak: "break-word" }}>{subtitle}</div>}
           </div>
-          <div style={{ overflowY: "auto", flex: 1, padding: "20px 28px 28px" }}>{children}</div>
+          <div style={{
+            overflowY: "auto", overflowX: "hidden", flex: 1, minHeight: 0,
+            WebkitOverflowScrolling: "touch",
+            padding: mobile ? "14px 16px 20px" : "20px 28px 28px",
+          }}>{children}</div>
         </div>
       </div>
     );
   }
+
 
   // ─── Form Field ───────────────────────────────────────────────────────────────
   function Field({ label, children }) {
@@ -192,6 +203,18 @@
           cursor: "pointer", transition: "all .2s", ...style,
         }}>{children}</button>
     );
+  }
+
+  function useIsMobile(breakpoint = 640) {
+    const [mobile, setMobile] = useState(
+      () => typeof window !== "undefined" && window.innerWidth <= breakpoint
+    );
+    useEffect(() => {
+      const onResize = () => setMobile(window.innerWidth <= breakpoint);
+      window.addEventListener("resize", onResize);
+      return () => window.removeEventListener("resize", onResize);
+    }, [breakpoint]);
+    return mobile;
   }
 
 
@@ -455,18 +478,22 @@
   // ─── Request Detail Modal ─────────────────────────────────────────────────────
   // ─── Detail Row (stable component, defined outside modal to preserve identity across re-renders) ──
   function DetailRow({ label, value, children }) {
+    const mobile = useIsMobile();
     return (
       <div style={{
-        display: "flex", gap: 12, padding: "10px 0",
+        display: "flex", flexDirection: mobile ? "column" : "row",
+        gap: mobile ? 3 : 12, padding: "10px 0",
         borderBottom: `1px solid ${border}`, alignItems: "flex-start",
       }}>
-        <div style={{ color: textMuted, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", minWidth: 130, paddingTop: 1 }}>{label}</div>
-        <div style={{ color: textPrimary, fontSize: 13.5, flex: 1, wordBreak: "break-word" }}>
+        <div style={{ color: textMuted, fontSize: 11.5, textTransform: "uppercase", letterSpacing: "0.06em", minWidth: mobile ? 0 : 130, paddingTop: 1 }}>{label}</div>
+        <div style={{ color: textPrimary, fontSize: 13.5, flex: 1, minWidth: 0, wordBreak: "break-word" }}>
           {children !== undefined ? children : (value || <span style={{ color: textMuted }}>—</span>)}
         </div>
       </div>
     );
   }
+
+
 
   // ─── Request Detail Modal ─────────────────────────────────────────────────────
   function RequestDetailModal({ request, token, onClose, onStatusChange }) {
@@ -753,8 +780,8 @@
                     </label>
                   ))}
                 </div>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <Field label={`Before photo${request.photos?.some(p => p.attachmentType === "before_photo") ? " (uploaded)" : " *"}`}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                <Field label={`Before photo${request.photos?.some(p => p.attachmentType === "before_photo") ? " (uploaded)" : " *"}`}>
                     <input type="file" accept="image/jpeg,image/png,image/webp" onChange={e => setBeforePhoto(e.target.files?.[0] || null)} style={{ ...inputStyle, padding: "8px 10px" }} />
                   </Field>
                   <Field label={`After photo${request.photos?.some(p => p.attachmentType === "after_photo") ? " (uploaded)" : " *"}`}>
@@ -1600,7 +1627,12 @@ const exportMonumentCsv = () => {
         </div>
 
       {/* Tabs */}
-      <div style={{ display: "flex", gap: 8, marginBottom: 22 }}>
+      {/* Tabs */}
+<div style={{
+  display: "flex", gap: 8, marginBottom: 22,
+  overflowX: "auto", WebkitOverflowScrolling: "touch",
+  paddingBottom: 6,
+}}>
             <Tab label="Approval Queue" active={tab === "approvalQueue"} onClick={() => setTab("approvalQueue")} count={queueRequests.length} />
             <Tab label="Payment Confirmation Queue" active={tab === "paymentConfirmationQueue"} onClick={() => setTab("paymentConfirmationQueue")} count={paymentInvoices.length} />
             <Tab label="Requests" active={tab === "requests"} onClick={() => setTab("requests")} count={requests.length} />
