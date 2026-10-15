@@ -37,28 +37,51 @@ function StatusPill({ status, requestType }) {
   );
 }
 
+function useIsMobile(breakpoint = 640) {
+  const [mobile, setMobile] = useState(
+    () => typeof window !== "undefined" && window.innerWidth <= breakpoint
+  );
+  useEffect(() => {
+    const onResize = () => setMobile(window.innerWidth <= breakpoint);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, [breakpoint]);
+  return mobile;
+}
+
+
 // ─── Reusable UI Primitives ───────────────────────────────────────────────────
 function Modal({ title, subtitle, onClose, children }) {
+  const mobile = useIsMobile();
   return (
     <div style={{
       position: "fixed", inset: 0, zIndex: 60, display: "flex",
-      alignItems: "center", justifyContent: "center", padding: 16,
+      alignItems: mobile ? "flex-end" : "center", justifyContent: "center",
+      padding: mobile ? 0 : 16,
       backgroundColor: "rgba(26,26,46,0.5)", backdropFilter: "blur(4px)",
     }} onClick={onClose}>
       <div style={{
-        backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 16,
-        width: "100%", maxWidth: 480, display: "flex", flexDirection: "column",
+        backgroundColor: surface, border: `1px solid ${border}`,
+        borderRadius: mobile ? "16px 16px 0 0" : 16,
+        width: "100%", maxWidth: mobile ? "100%" : 480,
+        maxHeight: mobile ? "92vh" : "90vh", display: "flex", flexDirection: "column",
+        boxSizing: "border-box", overflow: "hidden",
         boxShadow: "0 20px 60px rgba(22,105,169,0.12), 0 4px 16px rgba(0,0,0,0.08)",
       }} onClick={e => e.stopPropagation()}>
-        <div style={{ padding: "24px 28px 16px", borderBottom: `1px solid ${border}` }}>
-          <div style={{ color: textPrimary, fontSize: 18, fontWeight: 700 }}>{title}</div>
-          {subtitle && <div style={{ color: textMuted, fontSize: 12.5, marginTop: 3 }}>{subtitle}</div>}
+        <div style={{ padding: mobile ? "16px 16px 12px" : "24px 28px 16px", borderBottom: `1px solid ${border}`, flexShrink: 0 }}>
+          <div style={{ color: textPrimary, fontSize: mobile ? 16 : 18, fontWeight: 700, wordBreak: "break-word" }}>{title}</div>
+          {subtitle && <div style={{ color: textMuted, fontSize: 12.5, marginTop: 3, wordBreak: "break-word" }}>{subtitle}</div>}
         </div>
-        <div style={{ padding: "20px 28px 28px" }}>{children}</div>
+        <div style={{
+          overflowY: "auto", overflowX: "hidden", flex: 1, minHeight: 0,
+          WebkitOverflowScrolling: "touch",
+          padding: mobile ? "14px 16px 20px" : "20px 28px 28px",
+        }}>{children}</div>
       </div>
     </div>
   );
 }
+
 
 function Field({ label, children }) {
   return (
@@ -182,7 +205,7 @@ function InviteModal({ token, onClose, onInvited }) {
         </div>
       </div>
 
-      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+      <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
         <GhostBtn onClick={onClose}>Cancel</GhostBtn>
         <ActionBtn onClick={handleInvite} disabled={saving}>
           {saving ? "Adding…" : "Add member"}
@@ -207,13 +230,14 @@ function Avatar({ email }) {
 
 // ─── Slot Card ────────────────────────────────────────────────────────────────
 function SlotCard({ member, index, onInvite, onRequestChange, isEmpty }) {
+  const mobile = useIsMobile();
   if (isEmpty) {
     return (
       <div style={{
         backgroundColor: surface, border: `1px dashed ${borderPrimary}`,
-        borderRadius: 12, padding: "20px 22px",
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        opacity: 0.7,
+        borderRadius: 12, padding: mobile ? "16px" : "20px 22px",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+        opacity: 0.7, boxSizing: "border-box",
       }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div style={{
@@ -237,14 +261,16 @@ function SlotCard({ member, index, onInvite, onRequestChange, isEmpty }) {
   return (
     <div style={{
       backgroundColor: surface, border: `1px solid ${border}`,
-      borderRadius: 12, padding: "20px 22px",
-      display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
-      boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
+      borderRadius: 12, padding: mobile ? "16px" : "20px 22px",
+      display: "flex", flexDirection: mobile ? "column" : "row",
+      alignItems: mobile ? "stretch" : "center", justifyContent: "space-between", gap: 12,
+      boxShadow: "0 1px 4px rgba(0,0,0,0.04)", boxSizing: "border-box", minWidth: 0,
     }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
         <Avatar email={member?.partner?.email} />
-        <div>
-          <div style={{ color: textPrimary, fontSize: 13.5, fontWeight: 600 }}>{member?.partner?.email}</div>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ color: textPrimary, fontSize: 13.5, fontWeight: 600, wordBreak: "break-all" }}>{member?.partner?.email}</div>
+
           <div style={{ color: textMuted, fontSize: 11.5, marginTop: 2 }}>
             Added {new Date(member.createdAt || member.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
             {member?.invitedByPartner?.email && (
@@ -256,10 +282,10 @@ function SlotCard({ member, index, onInvite, onRequestChange, isEmpty }) {
           </div>
         </div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 8 }}>
+      <div style={{ display: "flex", flexDirection: "column", alignItems: mobile ? "flex-start" : "flex-end", gap: 8, minWidth: 0 }}>
         <StatusPill status={member.status} requestType={member.request_type} />
         {member.status === "approved" && member.partner?.status === "active" && (
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: mobile ? "flex-start" : "flex-end" }}>
             <GhostBtn onClick={() => onRequestChange(member, "deactivate")} style={{ padding: "6px 9px", fontSize: 11 }}>
               Request deactivation
             </GhostBtn>
@@ -278,6 +304,7 @@ function SlotCard({ member, index, onInvite, onRequestChange, isEmpty }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function PartnerTeamMembers({ token }) {
+  const mobile = useIsMobile();
   const { error: err, success: ok } = useToast();
   const [members, setMembers]     = useState([]);
   const [loading, setLoading]     = useState(true);
@@ -357,10 +384,10 @@ export default function PartnerTeamMembers({ token }) {
       {/* Top accent bar */}
       <div style={{ height: 4, background: "linear-gradient(90deg, #1669A9, #1E90CF, #1669A9)" }} />
 
-      <main style={{ maxWidth: 720, margin: "0 auto", padding: "36px 24px" }}>
+      <main style={{ maxWidth: 720, margin: "0 auto", padding: mobile ? "24px 14px" : "36px 24px" }}>
 
-        {/* Header */}
-        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", marginBottom: 28 }}>
+{/* Header */}
+<div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 28 }}>
           <div>
             <h1 style={{ fontSize: 26, fontWeight: 700, color: textPrimary, margin: 0 }}>family advisors</h1>
             <p style={{ color: textMuted, fontSize: 13, marginTop: 5, marginBottom: 0 }}>
@@ -379,8 +406,9 @@ export default function PartnerTeamMembers({ token }) {
         {/* Usage bar */}
         <div style={{
           backgroundColor: surface, border: `1px solid ${border}`, borderRadius: 12,
-          padding: "16px 20px", marginBottom: 24,
-          display: "flex", alignItems: "center", gap: 20,
+          padding: mobile ? "14px 14px" : "16px 20px", marginBottom: 24,
+          display: "flex", alignItems: "center", gap: mobile ? 12 : 20, flexWrap: "wrap",
+
           boxShadow: "0 1px 4px rgba(0,0,0,0.04)",
         }}>
           <div style={{ flex: 1 }}>
@@ -481,11 +509,10 @@ export default function PartnerTeamMembers({ token }) {
               style={{ ...inputStyle, height: "auto", padding: 10, resize: "vertical" }}
             />
           </Field>
-          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end" }}>
+          <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", flexWrap: "wrap" }}>
             <GhostBtn
               onClick={() => {
                 setStatusRequest(null);
-                setStatusRequestReason("");
               }}
             >Cancel</GhostBtn>
             <ActionBtn onClick={handleStatusRequest} disabled={!statusRequestReason.trim() || requestingId !== null}>
