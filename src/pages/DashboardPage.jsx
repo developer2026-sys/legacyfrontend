@@ -288,7 +288,7 @@ function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClo
             <DetailRow label="Section / Garden" value={request.section} />
             <DetailRow label="Lot Number" value={request.lot} />
             <DetailRow label="Space Number" value={request.space} />
-            <DetailRow label="Vase Information" value={request.vaseInfo} />
+            <DetailRow label="Customer Vase Information" value={request.vaseInfo} />
           </div>
         </div>
 
@@ -298,7 +298,7 @@ function RequestDetailsDialog({ request, isFamilyAdvisor, priceVisibility, onClo
             <DetailRow label="Property" value={request.memorialLocation} />
             <DetailRow label="Service" value={request.serviceSnapshot || request.packageNameSnapshot || request.package?.name} />
             <DetailRow label="Item" value={request.itemSnapshot} />
-            <DetailRow label="Term" value={request.term} />
+            <DetailRow label="Service Plan / Duration" value={request.term} />
             {priceVisibility === "customer_retail" && request.customerRetailPrice != null && (
               <DetailRow label="Customer Retail Price" value={`$${Number(request.customerRetailPrice).toFixed(2)}`} />
             )}
@@ -2187,7 +2187,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
 
 <div>
   <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
-    Vase Information
+   Customer Vase Information
   </label>
   <input
     name="vaseInformation"
@@ -2205,7 +2205,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     className="block text-sm font-medium mb-2"
     style={{ color: "#374151" }}
   >
-    {isFamilyAdvisor ? "Customer Phone" : "Phone Number"}
+    {isFamilyAdvisor ? "Customer Phone" : "Customer Phone Number"}
   </label>
   <input
     name="phoneNumber"
@@ -2225,7 +2225,7 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
     className="block text-sm font-medium mb-2"
     style={{ color: "#374151" }}
   >
-    {isFamilyAdvisor ? "Customer Email" : "Email Address"}
+    {isFamilyAdvisor ? "Customer Email" : "Customer Email Address"}
   </label>
   <input
     name="emailAddress"
@@ -2332,9 +2332,26 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                   )}
                 </div>
 
+                <div
+                  className="rounded-lg p-4"
+                  style={{ backgroundColor: "#F0F7FF", border: "1px solid #BFDBFE", borderLeft: "4px solid #1669A9" }}
+                >
+                  <div className="text-sm font-semibold mb-1" style={{ color: "#1669A9" }}>
+                    Annual Memorial Care Available
+                  </div>
+                  <p className="text-sm" style={{ color: "#374151", lineHeight: 1.5 }}>
+                    In addition to one-time cleaning and restoration, Lasting Legacy Cleaners offers annual
+                    preventative memorial care to help families preserve the beauty, condition, and dignity
+                    of their loved one's memorial year after year.
+                  </p>
+                  <p className="text-sm mt-2 font-medium" style={{ color: "#1A1A2E" }}>
+                    Ask families about ongoing memorial care when discussing their service options.
+                  </p>
+                </div>
+
                 <div>
                   <label className="block text-sm font-medium mb-2" style={{ color: "#374151" }}>
-                    Term
+                    Service Plan / Duration
                   </label>
                   <select
                     name="term"
@@ -2345,11 +2362,19 @@ function NewMonumentSettingForm({ partnerName, partner, token, onCreated }) {
                     onFocus={handleInputFocus}
                     onBlur={handleInputBlur}
                   >
-                    <option value="">Select a term…</option>
-                    <option value="1 Year">1 Year</option>
-                    <option value="2 Year">2 Year</option>
-                    <option value="3 Year">3 Year</option>
+                    <option value="">Select a service plan…</option>
+                    <optgroup label="One-Time Service">
+                      <option value="1 Time Cleaning">1 Time Cleaning</option>
+                    </optgroup>
+                    <optgroup label="Annual Memorial Care Plans">
+                      <option value="1 Year">1 Year Annual Care</option>
+                      <option value="2 Year">2 Year Annual Care</option>
+                      <option value="3 Year">3 Year Annual Care</option>
+                    </optgroup>
                   </select>
+                  <p className="text-xs mt-2" style={{ color: "#6B7280" }}>
+                    One-time cleaning is a single visit. Annual plans include recurring preventative care for the length of the plan.
+                  </p>
                 </div>
 
                 <div>

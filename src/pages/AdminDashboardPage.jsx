@@ -982,6 +982,19 @@
       finally { setReqLoading(false); }
     }, [token, err]);
 
+    // const fetchPaymentConfirmationQueue = useCallback(async () => {
+    //   try {
+    //     setPaymentQueueLoading(true);
+    //     const { data } = await axios.get(
+    //       `${BASE_URL}/admin/invoices/payment-confirmation-queue`,
+    //       { headers: { Authorization: `Bearer ${token}` } }
+    //     );
+    //     setPaymentInvoices(data.invoices || []);
+    //   } catch { err("Error", "Failed to load payment confirmation queue."); }
+    //   finally { setPaymentQueueLoading(false); }
+    // }, [token, err]);
+
+
     const fetchPaymentConfirmationQueue = useCallback(async () => {
       try {
         setPaymentQueueLoading(true);
@@ -989,7 +1002,12 @@
           `${BASE_URL}/admin/invoices/payment-confirmation-queue`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
-        setPaymentInvoices(data.invoices || []);
+        const sorted = [...(data.invoices || [])].sort((a, b) => {
+          const aTime = new Date(a.createdAt || a.created_at || a.memorialRequest?.submittedAt || 0).getTime() || 0;
+          const bTime = new Date(b.createdAt || b.created_at || b.memorialRequest?.submittedAt || 0).getTime() || 0;
+          return (bTime - aTime) || (Number(b.id || 0) - Number(a.id || 0));
+        });
+        setPaymentInvoices(sorted);
       } catch { err("Error", "Failed to load payment confirmation queue."); }
       finally { setPaymentQueueLoading(false); }
     }, [token, err]);
