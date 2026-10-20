@@ -1336,7 +1336,8 @@
         await axios.patch(`${BASE_URL}/admin/partner-team-members/${id}/${decision}`, {}, { headers: { Authorization: `Bearer ${token}` } });
         ok(decision === "approve" ? "Approved" : "Denied", `${noun} request has been ${decision === "approve" ? "approved" : "denied"}.`);
         setPartnerTeamMembers(prev => prev.map(m => m.id === id ? { ...m, status: decision === "approve" ? "approved" : "denied" } : m));
-        if (decision === "approve" && type !== "activate") void fetchPartners();
+      // AFTER
+      void fetchPartners();
       } catch (e) {
         if (e?.response?.status === 409) {
           await fetchPartnerTeamMembers(); 
@@ -2031,7 +2032,8 @@ const exportMonumentCsv = () => {
                                   onMouseLeave={e => Object.assign(e.currentTarget.style, btnRed.leave)}
                                 >Deactivate</button>
                               )}
-                              {["inactive", "suspended"].includes(p.status) && (
+                           
+                             {["inactive", "suspended", "denied"].includes(p.status) && (
                                 <button
                                   disabled={deactivatingId === p.id}
                                   onClick={() => handleReactivatePartner(p)}
